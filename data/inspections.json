@@ -1,0 +1,993 @@
+[
+  {
+    "id": "INSP-2026-001",
+    "title": "Himalayan Organic Wild Honey 500g",
+    "productName": "Himalayan Organic Wild Honey",
+    "brand": "NaturePure Botanicals",
+    "inspectorName": "S. Sharma, Senior Legal Metrology Officer",
+    "inspectorLocation": "North Zone Inspection Directorate, Delhi",
+    "batchNumber": "NP-HMY-2026-B4",
+    "retailerName": "Metro Supermart Pvt Ltd, Rohini",
+    "createdAt": "2026-08-31T04:22:36.052Z",
+    "updatedAt": "2026-08-31T04:22:36.052Z",
+    "status": "completed",
+    "images": [
+      {
+        "id": "img_s1_1",
+        "name": "honey_front.jpg",
+        "side": "front",
+        "url": "https://images.unsplash.com/photo-1587049352846-4a222e784d38?w=800&auto=format&fit=crop&q=80",
+        "sizeBytes": 245000,
+        "mimeType": "image/jpeg",
+        "timestamp": "2026-09-02T04:22:36.052Z",
+        "quality": {
+          "isAcceptable": true,
+          "blurScore": 88,
+          "brightnessScore": 72,
+          "glareDetected": false,
+          "textLegibilityEstimated": true,
+          "warnings": []
+        }
+      },
+      {
+        "id": "img_s1_2",
+        "name": "honey_back.jpg",
+        "side": "back",
+        "url": "https://images.unsplash.com/photo-1558642452-9d2a7deb7f62?w=800&auto=format&fit=crop&q=80",
+        "sizeBytes": 280000,
+        "mimeType": "image/jpeg",
+        "timestamp": "2026-09-02T04:22:36.052Z",
+        "quality": {
+          "isAcceptable": true,
+          "blurScore": 92,
+          "brightnessScore": 68,
+          "glareDetected": false,
+          "textLegibilityEstimated": true,
+          "warnings": []
+        }
+      }
+    ],
+    "result": {
+      "id": "res_001",
+      "inspectionId": "INSP-2026-001",
+      "overallStatus": "COMPLIANT",
+      "score": {
+        "score": 96,
+        "formulaExplanation": "Base 100 - (Violations: 0 × 30 pts) - (Warnings: 0 × 10 pts) across 10 statutory checks.",
+        "passCount": 9,
+        "failCount": 0,
+        "warningCount": 0,
+        "notDeterminableCount": 0,
+        "notApplicableCount": 1,
+        "totalRulesEvaluated": 10
+      },
+      "confidence": "HIGH",
+      "confidenceScore": 95,
+      "confidenceReasons": [
+        "Comprehensive package coverage: 2 distinct panels submitted.",
+        "High AI optical extraction confidence (96%)."
+      ],
+      "productCategory": "FOOD (HONEY & SWEETENERS)",
+      "isCategoryIdentified": true,
+      "assessedAt": "2026-08-31T04:22:36.052Z",
+      "extractedDeclarations": {
+        "product_name": {
+          "value": "Himalayan Organic Wild Honey",
+          "confidence": 0.96,
+          "sourceImageId": "img_s1_1",
+          "sourceSide": "front",
+          "status": "found"
+        },
+        "brand": {
+          "value": "NaturePure Botanicals",
+          "confidence": 0.98,
+          "sourceImageId": "img_s1_1",
+          "sourceSide": "front",
+          "status": "found"
+        },
+        "product_category": {
+          "value": "Food & Sweeteners",
+          "confidence": 0.92,
+          "sourceImageId": "img_s1_1",
+          "sourceSide": "front",
+          "status": "found"
+        },
+        "generic_or_common_name": {
+          "value": "Pure Honey",
+          "confidence": 0.95,
+          "sourceImageId": "img_s1_1",
+          "sourceSide": "front",
+          "status": "found"
+        },
+        "manufacturer_name": {
+          "value": "NaturePure Agro Foods Ltd.",
+          "confidence": 0.94,
+          "sourceImageId": "img_s1_2",
+          "sourceSide": "back",
+          "status": "found"
+        },
+        "manufacturer_address": {
+          "value": "Village Bhimtal, Dist. Nainital, Uttarakhand - 263136",
+          "confidence": 0.92,
+          "sourceImageId": "img_s1_2",
+          "sourceSide": "back",
+          "status": "found"
+        },
+        "packer_name": {
+          "value": "NaturePure Agro Foods Ltd.",
+          "confidence": 0.94,
+          "sourceImageId": "img_s1_2",
+          "sourceSide": "back",
+          "status": "found"
+        },
+        "packer_address": {
+          "value": "Village Bhimtal, Dist. Nainital, Uttarakhand - 263136",
+          "confidence": 0.92,
+          "sourceImageId": "img_s1_2",
+          "sourceSide": "back",
+          "status": "found"
+        },
+        "importer_name": {
+          "value": null,
+          "confidence": 0,
+          "sourceImageId": "",
+          "sourceSide": "other",
+          "status": "not_found"
+        },
+        "importer_address": {
+          "value": null,
+          "confidence": 0,
+          "sourceImageId": "",
+          "sourceSide": "other",
+          "status": "not_found"
+        },
+        "net_quantity": {
+          "value": "500 g",
+          "confidence": 0.98,
+          "sourceImageId": "img_s1_1",
+          "sourceSide": "front",
+          "status": "found"
+        },
+        "quantity_value": {
+          "value": 500,
+          "confidence": 0.98,
+          "sourceImageId": "img_s1_1",
+          "sourceSide": "front",
+          "status": "found"
+        },
+        "quantity_unit": {
+          "value": "g",
+          "confidence": 0.98,
+          "sourceImageId": "img_s1_1",
+          "sourceSide": "front",
+          "status": "found"
+        },
+        "unit_sale_price": {
+          "value": "₹ 0.79 / g",
+          "confidence": 0.9,
+          "sourceImageId": "img_s1_2",
+          "sourceSide": "back",
+          "status": "found"
+        },
+        "mrp": {
+          "value": "₹ 395.00 (inclusive of all taxes)",
+          "confidence": 0.98,
+          "sourceImageId": "img_s1_2",
+          "sourceSide": "back",
+          "status": "found"
+        },
+        "currency": {
+          "value": "INR",
+          "confidence": 0.98,
+          "sourceImageId": "img_s1_2",
+          "sourceSide": "back",
+          "status": "found"
+        },
+        "manufacturing_date": {
+          "value": "04/2026",
+          "confidence": 0.94,
+          "sourceImageId": "img_s1_2",
+          "sourceSide": "back",
+          "status": "found"
+        },
+        "packing_date": {
+          "value": "04/2026",
+          "confidence": 0.94,
+          "sourceImageId": "img_s1_2",
+          "sourceSide": "back",
+          "status": "found"
+        },
+        "import_date": {
+          "value": null,
+          "confidence": 0,
+          "sourceImageId": "",
+          "sourceSide": "other",
+          "status": "not_found"
+        },
+        "expiry_date": {
+          "value": "18 Months from Packing (10/2027)",
+          "confidence": 0.92,
+          "sourceImageId": "img_s1_2",
+          "sourceSide": "back",
+          "status": "found"
+        },
+        "best_before": {
+          "value": "18 Months from Packing",
+          "confidence": 0.92,
+          "sourceImageId": "img_s1_2",
+          "sourceSide": "back",
+          "status": "found"
+        },
+        "consumer_care_name": {
+          "value": "Customer Support Manager",
+          "confidence": 0.9,
+          "sourceImageId": "img_s1_2",
+          "sourceSide": "back",
+          "status": "found"
+        },
+        "consumer_care_address": {
+          "value": "NaturePure Support Cell, Nainital, Uttarakhand - 263136",
+          "confidence": 0.9,
+          "sourceImageId": "img_s1_2",
+          "sourceSide": "back",
+          "status": "found"
+        },
+        "consumer_care_phone": {
+          "value": "1800-889-4321",
+          "confidence": 0.98,
+          "sourceImageId": "img_s1_2",
+          "sourceSide": "back",
+          "status": "found"
+        },
+        "consumer_care_email": {
+          "value": "customercare@naturepure.in",
+          "confidence": 0.98,
+          "sourceImageId": "img_s1_2",
+          "sourceSide": "back",
+          "status": "found"
+        },
+        "country_of_origin": {
+          "value": "India",
+          "confidence": 0.96,
+          "sourceImageId": "img_s1_2",
+          "sourceSide": "back",
+          "status": "found"
+        },
+        "is_imported": {
+          "value": false,
+          "confidence": 0.98,
+          "sourceImageId": "img_s1_2",
+          "sourceSide": "back",
+          "status": "found"
+        },
+        "visible_declarations": [
+          "Product Name",
+          "Brand",
+          "Generic Name",
+          "Net Qty 500g",
+          "MRP ₹395 incl. of all taxes",
+          "Mfg Date 04/2026",
+          "Best Before 18 Months",
+          "Mfg Address",
+          "Consumer Care"
+        ],
+        "unreadable_declarations": [],
+        "possible_missing_declarations": [],
+        "overall_extraction_confidence": 0.95
+      },
+      "evaluations": [
+        {
+          "rule_id": "LMPC-R06-MFG",
+          "rule_name": "Manufacturer / Packer Identity & Complete Address",
+          "category": "IDENTITY",
+          "status": "PASS",
+          "detected_value": "NaturePure Agro Foods Ltd. | Village Bhimtal, Nainital, UK - 263136",
+          "issue": null,
+          "explanation": "Statutory manufacturer name and complete postal address with PIN code verified.",
+          "recommendation": "Compliant.",
+          "evidence": {
+            "snippet": "Manufactured & Packed by: NaturePure Agro Foods Ltd., Bhimtal, Nainital - 263136",
+            "source_side": "back",
+            "confidence": 0.94
+          },
+          "source_images": [
+            "img_s1_2"
+          ],
+          "confidence": 0.95,
+          "legal_reference": "Rule 6(1)(a) & (b), LMPC Rules, 2011",
+          "legal_source": "Dept. of Consumer Affairs"
+        },
+        {
+          "rule_id": "LMPC-R06-QTY",
+          "rule_name": "Net Quantity in Standard Metric Units",
+          "category": "NET_QUANTITY",
+          "status": "PASS",
+          "detected_value": "500 g",
+          "issue": null,
+          "explanation": "Declared in standard metric unit \"g\" conforming to Rule 12 & Rule 13.",
+          "recommendation": "Compliant.",
+          "evidence": {
+            "snippet": "Net Quantity: 500 g",
+            "source_side": "front",
+            "confidence": 0.98
+          },
+          "source_images": [
+            "img_s1_1"
+          ],
+          "confidence": 0.98,
+          "legal_reference": "Rule 6(1)(d), Rule 12 & 13, LMPC Rules, 2011",
+          "legal_source": "Dept. of Consumer Affairs"
+        },
+        {
+          "rule_id": "LMPC-R06-MRP",
+          "rule_name": "Maximum Retail Price (MRP) with All Taxes Included",
+          "category": "MRP",
+          "status": "PASS",
+          "detected_value": "₹ 395.00 (inclusive of all taxes)",
+          "issue": null,
+          "explanation": "MRP formatted with mandatory tax inclusion wording.",
+          "recommendation": "Compliant.",
+          "evidence": {
+            "snippet": "MRP ₹ 395.00 (incl. of all taxes)",
+            "source_side": "back",
+            "confidence": 0.98
+          },
+          "source_images": [
+            "img_s1_2"
+          ],
+          "confidence": 0.98,
+          "legal_reference": "Rule 6(1)(e), LMPC Rules, 2011",
+          "legal_source": "Dept. of Consumer Affairs"
+        },
+        {
+          "rule_id": "LMPC-R06-CC",
+          "rule_name": "Consumer Care Contact Details",
+          "category": "CONSUMER_CARE",
+          "status": "PASS",
+          "detected_value": "Tel: 1800-889-4321 | Email: customercare@naturepure.in",
+          "issue": null,
+          "explanation": "Multi-channel grievance redressal contact info fully present.",
+          "recommendation": "Compliant.",
+          "evidence": {
+            "snippet": "Toll Free: 1800-889-4321, customercare@naturepure.in",
+            "source_side": "back",
+            "confidence": 0.98
+          },
+          "source_images": [
+            "img_s1_2"
+          ],
+          "confidence": 0.98,
+          "legal_reference": "Rule 6(1)(h), LMPC Rules, 2011",
+          "legal_source": "Dept. of Consumer Affairs"
+        }
+      ]
+    }
+  },
+  {
+    "id": "INSP-2026-002",
+    "title": "Crunchy Nut Cashew Cookies 250g",
+    "productName": "Crunchy Nut Cashew Delight Cookies",
+    "brand": "BakersTreat",
+    "inspectorName": "A. Verma, Inspector Legal Metrology",
+    "inspectorLocation": "Connaught Place Range, New Delhi",
+    "batchNumber": "BT-CK-9901",
+    "retailerName": "Everfresh Grocers, Saket",
+    "createdAt": "2026-09-01T04:22:36.052Z",
+    "updatedAt": "2026-09-01T04:22:36.052Z",
+    "status": "completed",
+    "images": [
+      {
+        "id": "img_s2_1",
+        "name": "cookies_front.jpg",
+        "side": "front",
+        "url": "https://images.unsplash.com/photo-1499636136210-6f4ee915583e?w=800&auto=format&fit=crop&q=80",
+        "sizeBytes": 210000,
+        "mimeType": "image/jpeg",
+        "timestamp": "2026-09-02T04:22:36.052Z",
+        "quality": {
+          "isAcceptable": true,
+          "blurScore": 82,
+          "brightnessScore": 70,
+          "glareDetected": false,
+          "textLegibilityEstimated": true,
+          "warnings": []
+        }
+      },
+      {
+        "id": "img_s2_2",
+        "name": "cookies_back.jpg",
+        "side": "back",
+        "url": "https://images.unsplash.com/photo-1558961363-fa8fdf82db35?w=800&auto=format&fit=crop&q=80",
+        "sizeBytes": 230000,
+        "mimeType": "image/jpeg",
+        "timestamp": "2026-09-02T04:22:36.052Z",
+        "quality": {
+          "isAcceptable": true,
+          "blurScore": 85,
+          "brightnessScore": 66,
+          "glareDetected": false,
+          "textLegibilityEstimated": true,
+          "warnings": []
+        }
+      }
+    ],
+    "result": {
+      "id": "res_002",
+      "inspectionId": "INSP-2026-002",
+      "overallStatus": "NON_COMPLIANT",
+      "score": {
+        "score": 38,
+        "formulaExplanation": "Base 100 - (Violations: 2 × 30 pts) - (Warnings: 1 × 10 pts) across 10 statutory checks.",
+        "passCount": 5,
+        "failCount": 2,
+        "warningCount": 1,
+        "notDeterminableCount": 0,
+        "notApplicableCount": 2,
+        "totalRulesEvaluated": 10
+      },
+      "confidence": "HIGH",
+      "confidenceScore": 90,
+      "confidenceReasons": [
+        "Comprehensive package coverage: 2 distinct panels submitted.",
+        "High AI optical extraction confidence (91%)."
+      ],
+      "productCategory": "FOOD (BAKERY & CONFECTIONERY)",
+      "isCategoryIdentified": true,
+      "assessedAt": "2026-09-01T04:22:36.052Z",
+      "extractedDeclarations": {
+        "product_name": {
+          "value": "Crunchy Nut Cashew Delight Cookies",
+          "confidence": 0.95,
+          "sourceImageId": "img_s2_1",
+          "sourceSide": "front",
+          "status": "found"
+        },
+        "brand": {
+          "value": "BakersTreat",
+          "confidence": 0.96,
+          "sourceImageId": "img_s2_1",
+          "sourceSide": "front",
+          "status": "found"
+        },
+        "product_category": {
+          "value": "Bakery Confectionery",
+          "confidence": 0.9,
+          "sourceImageId": "img_s2_1",
+          "sourceSide": "front",
+          "status": "found"
+        },
+        "generic_or_common_name": {
+          "value": "Biscuits / Cookies",
+          "confidence": 0.88,
+          "sourceImageId": "img_s2_1",
+          "sourceSide": "front",
+          "status": "found"
+        },
+        "manufacturer_name": {
+          "value": "Treatwell Foods LLP",
+          "confidence": 0.92,
+          "sourceImageId": "img_s2_2",
+          "sourceSide": "back",
+          "status": "found"
+        },
+        "manufacturer_address": {
+          "value": "Industrial Estate, Okhla Phase III, New Delhi - 110020",
+          "confidence": 0.9,
+          "sourceImageId": "img_s2_2",
+          "sourceSide": "back",
+          "status": "found"
+        },
+        "packer_name": {
+          "value": "Treatwell Foods LLP",
+          "confidence": 0.92,
+          "sourceImageId": "img_s2_2",
+          "sourceSide": "back",
+          "status": "found"
+        },
+        "packer_address": {
+          "value": "Industrial Estate, Okhla Phase III, New Delhi - 110020",
+          "confidence": 0.9,
+          "sourceImageId": "img_s2_2",
+          "sourceSide": "back",
+          "status": "found"
+        },
+        "importer_name": {
+          "value": null,
+          "confidence": 0,
+          "sourceImageId": "",
+          "sourceSide": "other",
+          "status": "not_found"
+        },
+        "importer_address": {
+          "value": null,
+          "confidence": 0,
+          "sourceImageId": "",
+          "sourceSide": "other",
+          "status": "not_found"
+        },
+        "net_quantity": {
+          "value": "250 gms",
+          "confidence": 0.95,
+          "sourceImageId": "img_s2_1",
+          "sourceSide": "front",
+          "status": "found",
+          "evidenceText": "Net Wt: 250 gms approx"
+        },
+        "quantity_value": {
+          "value": 250,
+          "confidence": 0.95,
+          "sourceImageId": "img_s2_1",
+          "sourceSide": "front",
+          "status": "found"
+        },
+        "quantity_unit": {
+          "value": "gms",
+          "confidence": 0.95,
+          "sourceImageId": "img_s2_1",
+          "sourceSide": "front",
+          "status": "found"
+        },
+        "mrp": {
+          "value": "Rs 60.00",
+          "confidence": 0.92,
+          "sourceImageId": "img_s2_2",
+          "sourceSide": "back",
+          "status": "found",
+          "evidenceText": "MRP Rs 60.00"
+        },
+        "currency": {
+          "value": "INR",
+          "confidence": 0.92,
+          "sourceImageId": "img_s2_2",
+          "sourceSide": "back",
+          "status": "found"
+        },
+        "manufacturing_date": {
+          "value": "03/2026",
+          "confidence": 0.88,
+          "sourceImageId": "img_s2_2",
+          "sourceSide": "back",
+          "status": "found"
+        },
+        "packing_date": {
+          "value": "03/2026",
+          "confidence": 0.88,
+          "sourceImageId": "img_s2_2",
+          "sourceSide": "back",
+          "status": "found"
+        },
+        "import_date": {
+          "value": null,
+          "confidence": 0,
+          "sourceImageId": "",
+          "sourceSide": "other",
+          "status": "not_found"
+        },
+        "expiry_date": {
+          "value": "6 Months from Mfg",
+          "confidence": 0.9,
+          "sourceImageId": "img_s2_2",
+          "sourceSide": "back",
+          "status": "found"
+        },
+        "best_before": {
+          "value": "6 Months from Mfg",
+          "confidence": 0.9,
+          "sourceImageId": "img_s2_2",
+          "sourceSide": "back",
+          "status": "found"
+        },
+        "consumer_care_name": {
+          "value": null,
+          "confidence": 0,
+          "sourceImageId": "",
+          "sourceSide": "other",
+          "status": "not_found"
+        },
+        "consumer_care_address": {
+          "value": null,
+          "confidence": 0,
+          "sourceImageId": "",
+          "sourceSide": "other",
+          "status": "not_found"
+        },
+        "consumer_care_phone": {
+          "value": "9811000000",
+          "confidence": 0.85,
+          "sourceImageId": "img_s2_2",
+          "sourceSide": "back",
+          "status": "found"
+        },
+        "consumer_care_email": {
+          "value": null,
+          "confidence": 0,
+          "sourceImageId": "",
+          "sourceSide": "other",
+          "status": "not_found"
+        },
+        "country_of_origin": {
+          "value": "India",
+          "confidence": 0.9,
+          "sourceImageId": "img_s2_2",
+          "sourceSide": "back",
+          "status": "found"
+        },
+        "is_imported": {
+          "value": false,
+          "confidence": 0.95,
+          "sourceImageId": "img_s2_2",
+          "sourceSide": "back",
+          "status": "found"
+        },
+        "visible_declarations": [
+          "Product Name",
+          "Brand",
+          "Net Wt: 250 gms approx",
+          "MRP Rs 60.00",
+          "Mfg Date 03/2026"
+        ],
+        "unreadable_declarations": [],
+        "possible_missing_declarations": [
+          "Mandatory \"incl. of all taxes\" text",
+          "Consumer care email and postal address",
+          "Correct unit symbol (g instead of gms)"
+        ],
+        "overall_extraction_confidence": 0.91
+      },
+      "evaluations": [
+        {
+          "rule_id": "LMPC-R06-QTY",
+          "rule_name": "Net Quantity in Standard Metric Units",
+          "category": "NET_QUANTITY",
+          "status": "FAIL",
+          "detected_value": "250 gms approx",
+          "issue": "Prohibited non-standard symbol \"gms\" and qualifier \"approx\" used.",
+          "explanation": "Rule 13 strictly prohibits plural abbreviations like \"gms\" and words like \"approx\". Standard metric unit \"g\" is mandatory.",
+          "recommendation": "Re-print net quantity strictly as \"250 g\" without qualifiers.",
+          "evidence": {
+            "snippet": "Net Wt: 250 gms approx",
+            "source_side": "front",
+            "confidence": 0.95
+          },
+          "source_images": [
+            "img_s2_1"
+          ],
+          "confidence": 0.95,
+          "legal_reference": "Rule 6(1)(d), Rule 12 & Rule 13, LMPC Rules, 2011",
+          "legal_source": "Dept. of Consumer Affairs",
+          "statutory_penalty_ref": "Section 36(1), Legal Metrology Act, 2009"
+        },
+        {
+          "rule_id": "LMPC-R06-MRP",
+          "rule_name": "Maximum Retail Price (MRP) with All Taxes Included",
+          "category": "MRP",
+          "status": "WARNING",
+          "detected_value": "Rs 60.00 (Tax wording omitted)",
+          "issue": "Retail price declared without mandatory \"inclusive of all taxes\" statement.",
+          "explanation": "Rule 6(1)(e) requires retail price to be declared with \"incl. of all taxes\" to prevent arbitrary consumer tax surcharges.",
+          "recommendation": "Include \"incl. of all taxes\" explicitly in the price declaration block.",
+          "evidence": {
+            "snippet": "MRP Rs 60.00",
+            "source_side": "back",
+            "confidence": 0.92
+          },
+          "source_images": [
+            "img_s2_2"
+          ],
+          "confidence": 0.9,
+          "legal_reference": "Rule 6(1)(e), LMPC Rules, 2011",
+          "legal_source": "Dept. of Consumer Affairs"
+        },
+        {
+          "rule_id": "LMPC-R06-CC",
+          "rule_name": "Consumer Care Contact Details",
+          "category": "CONSUMER_CARE",
+          "status": "FAIL",
+          "detected_value": "Only Mobile Number (9811000000); Email and Postal Address Missing",
+          "issue": "Incomplete consumer grievance redressal channels.",
+          "explanation": "Rule 6(1)(h) mandates complete consumer contact details: contact person/office, physical address, phone number, and email address.",
+          "recommendation": "Add official email address and physical office address of the consumer cell.",
+          "evidence": {
+            "snippet": "Helpline: 9811000000 (No email/address provided)",
+            "source_side": "back",
+            "confidence": 0.85
+          },
+          "source_images": [
+            "img_s2_2"
+          ],
+          "confidence": 0.9,
+          "legal_reference": "Rule 6(1)(h), LMPC Rules, 2011",
+          "legal_source": "Dept. of Consumer Affairs",
+          "statutory_penalty_ref": "Section 36(1), Legal Metrology Act, 2009"
+        }
+      ]
+    }
+  },
+  {
+    "id": "INSP-2026-003",
+    "title": "Instant Lemon Green Tea 25 Sachets",
+    "productName": "Instant Lemon Green Tea",
+    "brand": "TeaZen Vitality",
+    "inspectorName": "P. Nair, Assistant Controller",
+    "inspectorLocation": "South Directorate, Bengaluru",
+    "createdAt": "2026-08-30T04:22:36.052Z",
+    "updatedAt": "2026-08-30T04:22:36.052Z",
+    "status": "completed",
+    "images": [
+      {
+        "id": "img_s3_1",
+        "name": "tea_front.jpg",
+        "side": "front",
+        "url": "https://images.unsplash.com/photo-1576092768241-dec231879fc3?w=800&auto=format&fit=crop&q=80",
+        "sizeBytes": 195000,
+        "mimeType": "image/jpeg",
+        "timestamp": "2026-09-02T04:22:36.052Z",
+        "quality": {
+          "isAcceptable": true,
+          "blurScore": 78,
+          "brightnessScore": 74,
+          "glareDetected": false,
+          "textLegibilityEstimated": true,
+          "warnings": []
+        }
+      }
+    ],
+    "result": {
+      "id": "res_003",
+      "inspectionId": "INSP-2026-003",
+      "overallStatus": "INSUFFICIENT_EVIDENCE",
+      "score": {
+        "score": 45,
+        "formulaExplanation": "Score reflects partial single-side evaluation. 4 mandatory declarations marked NOT_DETERMINABLE due to missing back panel.",
+        "passCount": 3,
+        "failCount": 0,
+        "warningCount": 0,
+        "notDeterminableCount": 4,
+        "notApplicableCount": 3,
+        "totalRulesEvaluated": 10
+      },
+      "confidence": "LOW",
+      "confidenceScore": 35,
+      "confidenceReasons": [
+        "Single panel submission: Only 1 side uploaded; missing sides lower certainty.",
+        "4 rules could not be determined due to missing package panels."
+      ],
+      "productCategory": "BEVERAGES (TEA & INFUSIONS)",
+      "isCategoryIdentified": true,
+      "assessedAt": "2026-08-30T04:22:36.052Z",
+      "extractedDeclarations": {
+        "product_name": {
+          "value": "Instant Lemon Green Tea",
+          "confidence": 0.94,
+          "sourceImageId": "img_s3_1",
+          "sourceSide": "front",
+          "status": "found"
+        },
+        "brand": {
+          "value": "TeaZen Vitality",
+          "confidence": 0.96,
+          "sourceImageId": "img_s3_1",
+          "sourceSide": "front",
+          "status": "found"
+        },
+        "product_category": {
+          "value": "Beverages Tea",
+          "confidence": 0.9,
+          "sourceImageId": "img_s3_1",
+          "sourceSide": "front",
+          "status": "found"
+        },
+        "generic_or_common_name": {
+          "value": "Green Tea Premix",
+          "confidence": 0.88,
+          "sourceImageId": "img_s3_1",
+          "sourceSide": "front",
+          "status": "found"
+        },
+        "manufacturer_name": {
+          "value": null,
+          "confidence": 0,
+          "sourceImageId": "",
+          "sourceSide": "other",
+          "status": "not_found"
+        },
+        "manufacturer_address": {
+          "value": null,
+          "confidence": 0,
+          "sourceImageId": "",
+          "sourceSide": "other",
+          "status": "not_found"
+        },
+        "packer_name": {
+          "value": null,
+          "confidence": 0,
+          "sourceImageId": "",
+          "sourceSide": "other",
+          "status": "not_found"
+        },
+        "packer_address": {
+          "value": null,
+          "confidence": 0,
+          "sourceImageId": "",
+          "sourceSide": "other",
+          "status": "not_found"
+        },
+        "importer_name": {
+          "value": null,
+          "confidence": 0,
+          "sourceImageId": "",
+          "sourceSide": "other",
+          "status": "not_found"
+        },
+        "importer_address": {
+          "value": null,
+          "confidence": 0,
+          "sourceImageId": "",
+          "sourceSide": "other",
+          "status": "not_found"
+        },
+        "net_quantity": {
+          "value": "50 g (25 N × 2 g)",
+          "confidence": 0.94,
+          "sourceImageId": "img_s3_1",
+          "sourceSide": "front",
+          "status": "found"
+        },
+        "quantity_value": {
+          "value": 50,
+          "confidence": 0.94,
+          "sourceImageId": "img_s3_1",
+          "sourceSide": "front",
+          "status": "found"
+        },
+        "quantity_unit": {
+          "value": "g",
+          "confidence": 0.94,
+          "sourceImageId": "img_s3_1",
+          "sourceSide": "front",
+          "status": "found"
+        },
+        "mrp": {
+          "value": null,
+          "confidence": 0,
+          "sourceImageId": "",
+          "sourceSide": "other",
+          "status": "not_found"
+        },
+        "currency": {
+          "value": "INR",
+          "confidence": 0.5,
+          "sourceImageId": "",
+          "sourceSide": "other",
+          "status": "not_found"
+        },
+        "manufacturing_date": {
+          "value": null,
+          "confidence": 0,
+          "sourceImageId": "",
+          "sourceSide": "other",
+          "status": "not_found"
+        },
+        "packing_date": {
+          "value": null,
+          "confidence": 0,
+          "sourceImageId": "",
+          "sourceSide": "other",
+          "status": "not_found"
+        },
+        "import_date": {
+          "value": null,
+          "confidence": 0,
+          "sourceImageId": "",
+          "sourceSide": "other",
+          "status": "not_found"
+        },
+        "expiry_date": {
+          "value": null,
+          "confidence": 0,
+          "sourceImageId": "",
+          "sourceSide": "other",
+          "status": "not_found"
+        },
+        "best_before": {
+          "value": null,
+          "confidence": 0,
+          "sourceImageId": "",
+          "sourceSide": "other",
+          "status": "not_found"
+        },
+        "consumer_care_name": {
+          "value": null,
+          "confidence": 0,
+          "sourceImageId": "",
+          "sourceSide": "other",
+          "status": "not_found"
+        },
+        "consumer_care_address": {
+          "value": null,
+          "confidence": 0,
+          "sourceImageId": "",
+          "sourceSide": "other",
+          "status": "not_found"
+        },
+        "consumer_care_phone": {
+          "value": null,
+          "confidence": 0,
+          "sourceImageId": "",
+          "sourceSide": "other",
+          "status": "not_found"
+        },
+        "consumer_care_email": {
+          "value": null,
+          "confidence": 0,
+          "sourceImageId": "",
+          "sourceSide": "other",
+          "status": "not_found"
+        },
+        "country_of_origin": {
+          "value": null,
+          "confidence": 0,
+          "sourceImageId": "",
+          "sourceSide": "other",
+          "status": "not_found"
+        },
+        "is_imported": {
+          "value": false,
+          "confidence": 0.5,
+          "sourceImageId": "",
+          "sourceSide": "other",
+          "status": "not_found"
+        },
+        "visible_declarations": [
+          "Product Name: Instant Lemon Green Tea",
+          "Brand: TeaZen",
+          "Net Qty: 50 g (25 N × 2 g)"
+        ],
+        "unreadable_declarations": [],
+        "possible_missing_declarations": [
+          "Manufacturer Name/Address",
+          "MRP & Tax declaration",
+          "Date of packing",
+          "Consumer Care"
+        ],
+        "overall_extraction_confidence": 0.74
+      },
+      "evaluations": [
+        {
+          "rule_id": "LMPC-R06-MFG",
+          "rule_name": "Manufacturer / Packer Identity & Complete Address",
+          "category": "IDENTITY",
+          "status": "NOT_DETERMINABLE",
+          "detected_value": "Not detected on Front panel",
+          "issue": "Manufacturer/Packer details were not visible on the submitted front image.",
+          "explanation": "Only front panel was submitted. Manufacturer address normally appears on back or side panels.",
+          "recommendation": "Upload back and side panels for complete statutory determination.",
+          "evidence": {
+            "snippet": "No manufacturer text visible on front image"
+          },
+          "source_images": [],
+          "confidence": 0.5,
+          "legal_reference": "Rule 6(1)(a) & (b), LMPC Rules, 2011",
+          "legal_source": "Dept. of Consumer Affairs"
+        },
+        {
+          "rule_id": "LMPC-R06-MRP",
+          "rule_name": "Maximum Retail Price (MRP) with All Taxes Included",
+          "category": "MRP",
+          "status": "NOT_DETERMINABLE",
+          "detected_value": "Not detected on Front panel",
+          "issue": "MRP not located on front display panel.",
+          "explanation": "MRP is stamped on the back or base of the carton.",
+          "recommendation": "Upload back or bottom panel showing price label.",
+          "evidence": {
+            "snippet": "No MRP block found on front panel"
+          },
+          "source_images": [],
+          "confidence": 0.5,
+          "legal_reference": "Rule 6(1)(e), LMPC Rules, 2011",
+          "legal_source": "Dept. of Consumer Affairs"
+        }
+      ]
+    }
+  }
+]

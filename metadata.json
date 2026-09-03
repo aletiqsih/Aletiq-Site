@@ -1,0 +1,11 @@
+{
+  "name": "Aletiq",
+  "description": "AI-Powered Packaged Commodity Compliance Intelligence Platform for Legal Metrology (SIH26034)",
+  "requestFramePermissions": [
+    "camera"
+  ],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
+
