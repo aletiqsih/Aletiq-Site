@@ -71,10 +71,10 @@ async function startServer() {
   });
 
   // 3. Inspections API
-  app.get('/api/inspections', (req, res) => {
+  app.get('/api/inspections', async (req, res) => {
     try {
       const { search, status } = req.query;
-      let list = inspectionRepository.getAll();
+      let list = await inspectionRepository.getAll();
 
       if (status && typeof status === 'string' && status !== 'ALL') {
         list = list.filter(i => i.result?.overallStatus === status);
@@ -97,10 +97,11 @@ async function startServer() {
     }
   });
 
-  app.post('/api/inspections', (req, res) => {
+  app.post('/api/inspections', async (req, res) => {
     try {
       const { title, productName, brand, inspectorName, inspectorLocation, batchNumber, retailerName } = req.body;
-      const count = inspectionRepository.getAll().length + 1;
+      const all = await inspectionRepository.getAll();
+      const count = all.length + 1;
       const id = `INSP-2026-${String(count).padStart(3, '0')}`;
 
       const newInspection: Inspection = {
@@ -118,23 +119,23 @@ async function startServer() {
         images: [],
       };
 
-      const saved = inspectionRepository.save(newInspection);
+      const saved = await inspectionRepository.save(newInspection);
       res.status(201).json({ success: true, data: saved });
     } catch (e: any) {
       res.status(500).json({ success: false, error: e.message });
     }
   });
 
-  app.get('/api/inspections/:id', (req, res) => {
-    const inspection = inspectionRepository.getById(req.params.id);
+  app.get('/api/inspections/:id', async (req, res) => {
+    const inspection = await inspectionRepository.getById(req.params.id);
     if (!inspection) {
       return res.status(404).json({ success: false, error: 'Inspection record not found' });
     }
     res.json({ success: true, data: inspection });
   });
 
-  app.delete('/api/inspections/:id', (req, res) => {
-    const ok = inspectionRepository.delete(req.params.id);
+  app.delete('/api/inspections/:id', async (req, res) => {
+    const ok = await inspectionRepository.delete(req.params.id);
     if (!ok) {
       return res.status(404).json({ success: false, error: 'Inspection not found' });
     }
@@ -142,9 +143,9 @@ async function startServer() {
   });
 
   // Add / Update Images for an Inspection
-  app.post('/api/inspections/:id/images', (req, res) => {
+  app.post('/api/inspections/:id/images', async (req, res) => {
     try {
-      const inspection = inspectionRepository.getById(req.params.id);
+      const inspection = await inspectionRepository.getById(req.params.id);
       if (!inspection) {
         return res.status(404).json({ success: false, error: 'Inspection not found' });
       }
@@ -177,22 +178,22 @@ async function startServer() {
         inspection.images.push(newImage);
       }
 
-      const saved = inspectionRepository.save(inspection);
+      const saved = await inspectionRepository.save(inspection);
       res.json({ success: true, data: saved });
     } catch (e: any) {
       res.status(500).json({ success: false, error: e.message });
     }
   });
 
-  app.delete('/api/inspections/:id/images/:imageId', (req, res) => {
+  app.delete('/api/inspections/:id/images/:imageId', async (req, res) => {
     try {
-      const inspection = inspectionRepository.getById(req.params.id);
+      const inspection = await inspectionRepository.getById(req.params.id);
       if (!inspection) {
         return res.status(404).json({ success: false, error: 'Inspection not found' });
       }
 
       inspection.images = inspection.images.filter(img => img.id !== req.params.imageId);
-      const saved = inspectionRepository.save(inspection);
+      const saved = await inspectionRepository.save(inspection);
       res.json({ success: true, data: saved });
     } catch (e: any) {
       res.status(500).json({ success: false, error: e.message });
@@ -202,7 +203,7 @@ async function startServer() {
   // 4. Run Analysis (AI Multimodal Extraction + Aletiq Rule Engine)
   app.post('/api/inspections/:id/analyze', async (req, res) => {
     try {
-      const inspection = inspectionRepository.getById(req.params.id);
+      const inspection = await inspectionRepository.getById(req.params.id);
       if (!inspection) {
         return res.status(404).json({ success: false, error: 'Inspection not found' });
       }
@@ -215,7 +216,7 @@ async function startServer() {
       }
 
       inspection.status = 'analyzing';
-      inspectionRepository.save(inspection);
+      await inspectionRepository.save(inspection);
 
       // Step 1: AI Multimodal Extraction (Reading & OCR)
       const extracted = await extractPackageDeclarationsWithGemini(inspection.images);
@@ -242,24 +243,24 @@ async function startServer() {
       // Auto-generate notice draft
       inspection.noticeDraft = generateImprovementNoticeDraft(inspection);
 
-      const saved = inspectionRepository.save(inspection);
+      const saved = await inspectionRepository.save(inspection);
       res.json({ success: true, data: saved });
     } catch (e: any) {
       console.error('Analysis execution failure:', e);
-      const inspection = inspectionRepository.getById(req.params.id);
+      const inspection = await inspectionRepository.getById(req.params.id);
       if (inspection) {
         inspection.status = 'failed';
         inspection.errorMessage = e.message || 'Analysis could not be completed';
-        inspectionRepository.save(inspection);
+        await inspectionRepository.save(inspection);
       }
       res.status(500).json({ success: false, error: e.message || 'Compliance analysis failed' });
     }
   });
 
   // 5. Compare Package with Digital Listing
-  app.post('/api/inspections/:id/compare', (req, res) => {
+  app.post('/api/inspections/:id/compare', async (req, res) => {
     try {
-      const inspection = inspectionRepository.getById(req.params.id);
+      const inspection = await inspectionRepository.getById(req.params.id);
       if (!inspection) {
         return res.status(404).json({ success: false, error: 'Inspection not found' });
       }
@@ -271,7 +272,7 @@ async function startServer() {
 
       const comparison = comparePackageWithDigitalListing(inspection, listing);
       inspection.comparison = comparison;
-      const saved = inspectionRepository.save(inspection);
+      const saved = await inspectionRepository.save(inspection);
 
       res.json({ success: true, data: saved });
     } catch (e: any) {
@@ -280,9 +281,9 @@ async function startServer() {
   });
 
   // 6. Get Improvement Notice Draft
-  app.get('/api/inspections/:id/notice', (req, res) => {
+  app.get('/api/inspections/:id/notice', async (req, res) => {
     try {
-      const inspection = inspectionRepository.getById(req.params.id);
+      const inspection = await inspectionRepository.getById(req.params.id);
       if (!inspection) {
         return res.status(404).json({ success: false, error: 'Inspection not found' });
       }
@@ -295,9 +296,9 @@ async function startServer() {
   });
 
   // 7. Analytics & Risk Intelligence
-  app.get('/api/analytics/risk-intelligence', (req, res) => {
+  app.get('/api/analytics/risk-intelligence', async (req, res) => {
     try {
-      const analytics = inspectionRepository.getRiskIntelligence();
+      const analytics = await inspectionRepository.getRiskIntelligence();
       res.json({ success: true, data: analytics });
     } catch (e: any) {
       res.status(500).json({ success: false, error: e.message });
@@ -305,9 +306,9 @@ async function startServer() {
   });
 
   // 8. Demo reset / seed
-  app.post('/api/demo/seed', (req, res) => {
+  app.post('/api/demo/seed', async (req, res) => {
     try {
-      inspectionRepository.seedInitialSamples();
+      await inspectionRepository.seedInitialSamples();
       res.json({ success: true, message: 'Seeded reference inspections successfully' });
     } catch (e: any) {
       res.status(500).json({ success: false, error: e.message });

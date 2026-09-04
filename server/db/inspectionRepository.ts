@@ -1,75 +1,104 @@
-import fs from 'fs';
-import path from 'path';
-import { Inspection, RiskIntelligenceAnalytics, ComparisonResult, ImprovementNotice } from '../../src/types';
+import { supabase } from './supabaseClient';
+import { Inspection, RiskIntelligenceAnalytics } from '../../src/types';
 
-const DATA_DIR = path.join(process.cwd(), 'data');
-const DATA_FILE = path.join(DATA_DIR, 'inspections.json');
+// ---------------------------------------------------------------------------
+// Table: inspections
+// Schema (run once in Supabase SQL editor):
+//
+//   create table if not exists inspections (
+//     id text primary key,
+//     data jsonb not null,
+//     created_at timestamptz not null default now(),
+//     updated_at timestamptz not null default now()
+//   );
+//
+//   -- Optional: index for fast sorting by updated_at
+//   create index if not exists inspections_updated_at_idx on inspections (updated_at desc);
+//
+// ---------------------------------------------------------------------------
 
 class InspectionRepository {
-  private inspections: Map<string, Inspection> = new Map();
+  // -------------------------------------------------------------------------
+  // READ
+  // -------------------------------------------------------------------------
 
-  constructor() {
-    this.initStorage();
-  }
+  public async getAll(): Promise<Inspection[]> {
+    const { data, error } = await supabase
+      .from('inspections')
+      .select('data')
+      .order('updated_at', { ascending: false });
 
-  private initStorage() {
-    try {
-      if (!fs.existsSync(DATA_DIR)) {
-        fs.mkdirSync(DATA_DIR, { recursive: true });
-      }
-
-      if (fs.existsSync(DATA_FILE)) {
-        const fileContent = fs.readFileSync(DATA_FILE, 'utf-8');
-        const list: Inspection[] = JSON.parse(fileContent);
-        list.forEach(item => this.inspections.set(item.id, item));
-      } else {
-        this.seedInitialSamples();
-      }
-    } catch (e) {
-      console.warn('Repository init storage warning, starting with in-memory seed:', e);
-      this.seedInitialSamples();
+    if (error) {
+      console.error('Supabase getAll error:', error.message);
+      throw new Error(`Failed to fetch inspections: ${error.message}`);
     }
+
+    return (data ?? []).map((row) => row.data as Inspection);
   }
 
-  private saveToFile() {
-    try {
-      if (!fs.existsSync(DATA_DIR)) {
-        fs.mkdirSync(DATA_DIR, { recursive: true });
-      }
-      const data = Array.from(this.inspections.values());
-      fs.writeFileSync(DATA_FILE, JSON.stringify(data, null, 2), 'utf-8');
-    } catch (e) {
-      console.error('Failed to persist inspections to file:', e);
+  public async getById(id: string): Promise<Inspection | undefined> {
+    const { data, error } = await supabase
+      .from('inspections')
+      .select('data')
+      .eq('id', id)
+      .single();
+
+    if (error) {
+      if (error.code === 'PGRST116') return undefined; // Row not found
+      console.error('Supabase getById error:', error.message);
+      throw new Error(`Failed to fetch inspection ${id}: ${error.message}`);
     }
+
+    return data?.data as Inspection | undefined;
   }
 
-  public getAll(): Inspection[] {
-    return Array.from(this.inspections.values()).sort(
-      (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-    );
-  }
+  // -------------------------------------------------------------------------
+  // WRITE
+  // -------------------------------------------------------------------------
 
-  public getById(id: string): Inspection | undefined {
-    return this.inspections.get(id);
-  }
-
-  public save(inspection: Inspection): Inspection {
+  public async save(inspection: Inspection): Promise<Inspection> {
     inspection.updatedAt = new Date().toISOString();
-    this.inspections.set(inspection.id, inspection);
-    this.saveToFile();
+
+    const { error } = await supabase
+      .from('inspections')
+      .upsert(
+        {
+          id: inspection.id,
+          data: inspection,
+          updated_at: inspection.updatedAt,
+          created_at: inspection.createdAt,
+        },
+        { onConflict: 'id' }
+      );
+
+    if (error) {
+      console.error('Supabase save error:', error.message);
+      throw new Error(`Failed to save inspection ${inspection.id}: ${error.message}`);
+    }
+
     return inspection;
   }
 
-  public delete(id: string): boolean {
-    const deleted = this.inspections.delete(id);
-    if (deleted) {
-      this.saveToFile();
+  public async delete(id: string): Promise<boolean> {
+    const { error, count } = await supabase
+      .from('inspections')
+      .delete({ count: 'exact' })
+      .eq('id', id);
+
+    if (error) {
+      console.error('Supabase delete error:', error.message);
+      throw new Error(`Failed to delete inspection ${id}: ${error.message}`);
     }
-    return deleted;
+
+    return (count ?? 0) > 0;
   }
 
-  public getRiskIntelligence(): RiskIntelligenceAnalytics {
-    const all = this.getAll().filter(i => i.result);
+  // -------------------------------------------------------------------------
+  // ANALYTICS (computed in-memory from fetched rows)
+  // -------------------------------------------------------------------------
+
+  public async getRiskIntelligence(): Promise<RiskIntelligenceAnalytics> {
+    const all = (await this.getAll()).filter((i) => i.result);
     const totalInspections = all.length;
 
     let compliantCount = 0;
@@ -84,7 +113,7 @@ class InspectionRepository {
     let multiSideCount = 0;
     let totalSides = 0;
 
-    all.forEach(insp => {
+    all.forEach((insp) => {
       const res = insp.result!;
       totalScore += res.score.score;
 
@@ -92,19 +121,17 @@ class InspectionRepository {
       else if (res.overallStatus === 'NON_COMPLIANT') nonCompliantCount++;
       else needsReviewCount++;
 
-      const sideCount = new Set(insp.images.map(img => img.side)).size;
+      const sideCount = new Set(insp.images.map((img) => img.side)).size;
       totalSides += sideCount;
       if (sideCount <= 1) singleSideCount++;
       else multiSideCount++;
 
-      // Category breakdown
       const cat = res.productCategory || 'General Merchandise';
       if (!categoryStats[cat]) categoryStats[cat] = { total: 0, violations: 0 };
       categoryStats[cat].total++;
       if (res.score.failCount > 0) categoryStats[cat].violations++;
 
-      // Violations
-      res.evaluations.forEach(ev => {
+      res.evaluations.forEach((ev) => {
         if (ev.status === 'FAIL' || ev.status === 'WARNING') {
           if (!violationCounts[ev.rule_id]) {
             violationCounts[ev.rule_id] = { count: 0, name: ev.rule_name, category: ev.category };
@@ -113,21 +140,20 @@ class InspectionRepository {
         }
       });
 
-      // Missing declarations
       if (res.extractedDeclarations.possible_missing_declarations) {
-        res.extractedDeclarations.possible_missing_declarations.forEach(field => {
+        res.extractedDeclarations.possible_missing_declarations.forEach((field) => {
           missingFieldCounts[field] = (missingFieldCounts[field] || 0) + 1;
         });
       }
     });
 
     const commonViolations = Object.entries(violationCounts)
-      .map(([ruleId, data]) => ({
+      .map(([ruleId, d]) => ({
         ruleId,
-        ruleName: data.name,
-        count: data.count,
-        percentage: totalInspections > 0 ? Math.round((data.count / totalInspections) * 100) : 0,
-        category: data.category,
+        ruleName: d.name,
+        count: d.count,
+        percentage: totalInspections > 0 ? Math.round((d.count / totalInspections) * 100) : 0,
+        category: d.category,
       }))
       .sort((a, b) => b.count - a.count);
 
@@ -135,10 +161,10 @@ class InspectionRepository {
       .map(([fieldName, count]) => ({ fieldName, count }))
       .sort((a, b) => b.count - a.count);
 
-    const categoryRiskBreakdown = Object.entries(categoryStats).map(([category, data]) => ({
+    const categoryRiskBreakdown = Object.entries(categoryStats).map(([category, d]) => ({
       category,
-      total: data.total,
-      violationRate: data.total > 0 ? Math.round((data.violations / data.total) * 100) : 0,
+      total: d.total,
+      violationRate: d.total > 0 ? Math.round((d.violations / d.total) * 100) : 0,
     }));
 
     return {
@@ -153,7 +179,8 @@ class InspectionRepository {
       sideCoverageStats: {
         singleSideCount,
         multiSideCount,
-        averageSidesPerInspection: totalInspections > 0 ? Number((totalSides / totalInspections).toFixed(1)) : 0,
+        averageSidesPerInspection:
+          totalInspections > 0 ? Number((totalSides / totalInspections).toFixed(1)) : 0,
       },
       recentTrends: [
         { date: 'Aug 2026 W1', inspectionsCount: Math.max(1, Math.round(totalInspections * 0.2)), complianceRate: 75 },
@@ -164,7 +191,16 @@ class InspectionRepository {
     };
   }
 
-  public seedInitialSamples() {
+  // -------------------------------------------------------------------------
+  // SEED (upserts demo data — safe to call on every cold start if table empty)
+  // -------------------------------------------------------------------------
+
+  public async seedInitialSamples(): Promise<void> {
+    const existing = await this.getAll();
+    if (existing.length > 0) return; // Already seeded
+
+    const now = new Date().toISOString();
+
     const samples: Inspection[] = [
       {
         id: 'INSP-2026-001',
@@ -186,15 +222,8 @@ class InspectionRepository {
             url: 'https://images.unsplash.com/photo-1587049352846-4a222e784d38?w=800&auto=format&fit=crop&q=80',
             sizeBytes: 245000,
             mimeType: 'image/jpeg',
-            timestamp: new Date().toISOString(),
-            quality: {
-              isAcceptable: true,
-              blurScore: 88,
-              brightnessScore: 72,
-              glareDetected: false,
-              textLegibilityEstimated: true,
-              warnings: [],
-            },
+            timestamp: now,
+            quality: { isAcceptable: true, blurScore: 88, brightnessScore: 72, glareDetected: false, textLegibilityEstimated: true, warnings: [] },
           },
           {
             id: 'img_s1_2',
@@ -203,37 +232,18 @@ class InspectionRepository {
             url: 'https://images.unsplash.com/photo-1558642452-9d2a7deb7f62?w=800&auto=format&fit=crop&q=80',
             sizeBytes: 280000,
             mimeType: 'image/jpeg',
-            timestamp: new Date().toISOString(),
-            quality: {
-              isAcceptable: true,
-              blurScore: 92,
-              brightnessScore: 68,
-              glareDetected: false,
-              textLegibilityEstimated: true,
-              warnings: [],
-            },
+            timestamp: now,
+            quality: { isAcceptable: true, blurScore: 92, brightnessScore: 68, glareDetected: false, textLegibilityEstimated: true, warnings: [] },
           },
         ],
         result: {
           id: 'res_001',
           inspectionId: 'INSP-2026-001',
           overallStatus: 'COMPLIANT',
-          score: {
-            score: 96,
-            formulaExplanation: 'Base 100 - (Violations: 0 × 30 pts) - (Warnings: 0 × 10 pts) across 10 statutory checks.',
-            passCount: 9,
-            failCount: 0,
-            warningCount: 0,
-            notDeterminableCount: 0,
-            notApplicableCount: 1,
-            totalRulesEvaluated: 10,
-          },
+          score: { score: 96, formulaExplanation: 'Base 100 - (Violations: 0 × 30 pts) - (Warnings: 0 × 10 pts) across 10 statutory checks.', passCount: 9, failCount: 0, warningCount: 0, notDeterminableCount: 0, notApplicableCount: 1, totalRulesEvaluated: 10 },
           confidence: 'HIGH',
           confidenceScore: 95,
-          confidenceReasons: [
-            'Comprehensive package coverage: 2 distinct panels submitted.',
-            'High AI optical extraction confidence (96%).',
-          ],
+          confidenceReasons: ['Comprehensive package coverage: 2 distinct panels submitted.', 'High AI optical extraction confidence (96%).'],
           productCategory: 'FOOD (HONEY & SWEETENERS)',
           isCategoryIdentified: true,
           assessedAt: new Date(Date.now() - 2 * 86400000).toISOString(),
@@ -271,66 +281,10 @@ class InspectionRepository {
             overall_extraction_confidence: 0.95,
           },
           evaluations: [
-            {
-              rule_id: 'LMPC-R06-MFG',
-              rule_name: 'Manufacturer / Packer Identity & Complete Address',
-              category: 'IDENTITY',
-              status: 'PASS',
-              detected_value: 'NaturePure Agro Foods Ltd. | Village Bhimtal, Nainital, UK - 263136',
-              issue: null,
-              explanation: 'Statutory manufacturer name and complete postal address with PIN code verified.',
-              recommendation: 'Compliant.',
-              evidence: { snippet: 'Manufactured & Packed by: NaturePure Agro Foods Ltd., Bhimtal, Nainital - 263136', source_side: 'back', confidence: 0.94 },
-              source_images: ['img_s1_2'],
-              confidence: 0.95,
-              legal_reference: 'Rule 6(1)(a) & (b), LMPC Rules, 2011',
-              legal_source: 'Dept. of Consumer Affairs',
-            },
-            {
-              rule_id: 'LMPC-R06-QTY',
-              rule_name: 'Net Quantity in Standard Metric Units',
-              category: 'NET_QUANTITY',
-              status: 'PASS',
-              detected_value: '500 g',
-              issue: null,
-              explanation: 'Declared in standard metric unit "g" conforming to Rule 12 & Rule 13.',
-              recommendation: 'Compliant.',
-              evidence: { snippet: 'Net Quantity: 500 g', source_side: 'front', confidence: 0.98 },
-              source_images: ['img_s1_1'],
-              confidence: 0.98,
-              legal_reference: 'Rule 6(1)(d), Rule 12 & 13, LMPC Rules, 2011',
-              legal_source: 'Dept. of Consumer Affairs',
-            },
-            {
-              rule_id: 'LMPC-R06-MRP',
-              rule_name: 'Maximum Retail Price (MRP) with All Taxes Included',
-              category: 'MRP',
-              status: 'PASS',
-              detected_value: '₹ 395.00 (inclusive of all taxes)',
-              issue: null,
-              explanation: 'MRP formatted with mandatory tax inclusion wording.',
-              recommendation: 'Compliant.',
-              evidence: { snippet: 'MRP ₹ 395.00 (incl. of all taxes)', source_side: 'back', confidence: 0.98 },
-              source_images: ['img_s1_2'],
-              confidence: 0.98,
-              legal_reference: 'Rule 6(1)(e), LMPC Rules, 2011',
-              legal_source: 'Dept. of Consumer Affairs',
-            },
-            {
-              rule_id: 'LMPC-R06-CC',
-              rule_name: 'Consumer Care Contact Details',
-              category: 'CONSUMER_CARE',
-              status: 'PASS',
-              detected_value: 'Tel: 1800-889-4321 | Email: customercare@naturepure.in',
-              issue: null,
-              explanation: 'Multi-channel grievance redressal contact info fully present.',
-              recommendation: 'Compliant.',
-              evidence: { snippet: 'Toll Free: 1800-889-4321, customercare@naturepure.in', source_side: 'back', confidence: 0.98 },
-              source_images: ['img_s1_2'],
-              confidence: 0.98,
-              legal_reference: 'Rule 6(1)(h), LMPC Rules, 2011',
-              legal_source: 'Dept. of Consumer Affairs',
-            },
+            { rule_id: 'LMPC-R06-MFG', rule_name: 'Manufacturer / Packer Identity & Complete Address', category: 'IDENTITY', status: 'PASS', detected_value: 'NaturePure Agro Foods Ltd. | Village Bhimtal, Nainital, UK - 263136', issue: null, explanation: 'Statutory manufacturer name and complete postal address with PIN code verified.', recommendation: 'Compliant.', evidence: { snippet: 'Manufactured & Packed by: NaturePure Agro Foods Ltd., Bhimtal, Nainital - 263136', source_side: 'back', confidence: 0.94 }, source_images: ['img_s1_2'], confidence: 0.95, legal_reference: 'Rule 6(1)(a) & (b), LMPC Rules, 2011', legal_source: 'Dept. of Consumer Affairs' },
+            { rule_id: 'LMPC-R06-QTY', rule_name: 'Net Quantity in Standard Metric Units', category: 'NET_QUANTITY', status: 'PASS', detected_value: '500 g', issue: null, explanation: 'Declared in standard metric unit "g" conforming to Rule 12 & Rule 13.', recommendation: 'Compliant.', evidence: { snippet: 'Net Quantity: 500 g', source_side: 'front', confidence: 0.98 }, source_images: ['img_s1_1'], confidence: 0.98, legal_reference: 'Rule 6(1)(d), Rule 12 & 13, LMPC Rules, 2011', legal_source: 'Dept. of Consumer Affairs' },
+            { rule_id: 'LMPC-R06-MRP', rule_name: 'Maximum Retail Price (MRP) with All Taxes Included', category: 'MRP', status: 'PASS', detected_value: '₹ 395.00 (inclusive of all taxes)', issue: null, explanation: 'MRP formatted with mandatory tax inclusion wording.', recommendation: 'Compliant.', evidence: { snippet: 'MRP ₹ 395.00 (incl. of all taxes)', source_side: 'back', confidence: 0.98 }, source_images: ['img_s1_2'], confidence: 0.98, legal_reference: 'Rule 6(1)(e), LMPC Rules, 2011', legal_source: 'Dept. of Consumer Affairs' },
+            { rule_id: 'LMPC-R06-CC', rule_name: 'Consumer Care Contact Details', category: 'CONSUMER_CARE', status: 'PASS', detected_value: 'Tel: 1800-889-4321 | Email: customercare@naturepure.in', issue: null, explanation: 'Multi-channel grievance redressal contact info fully present.', recommendation: 'Compliant.', evidence: { snippet: 'Toll Free: 1800-889-4321, customercare@naturepure.in', source_side: 'back', confidence: 0.98 }, source_images: ['img_s1_2'], confidence: 0.98, legal_reference: 'Rule 6(1)(h), LMPC Rules, 2011', legal_source: 'Dept. of Consumer Affairs' },
           ],
         },
       },
@@ -354,15 +308,8 @@ class InspectionRepository {
             url: 'https://images.unsplash.com/photo-1499636136210-6f4ee915583e?w=800&auto=format&fit=crop&q=80',
             sizeBytes: 210000,
             mimeType: 'image/jpeg',
-            timestamp: new Date().toISOString(),
-            quality: {
-              isAcceptable: true,
-              blurScore: 82,
-              brightnessScore: 70,
-              glareDetected: false,
-              textLegibilityEstimated: true,
-              warnings: [],
-            },
+            timestamp: now,
+            quality: { isAcceptable: true, blurScore: 82, brightnessScore: 70, glareDetected: false, textLegibilityEstimated: true, warnings: [] },
           },
           {
             id: 'img_s2_2',
@@ -371,37 +318,18 @@ class InspectionRepository {
             url: 'https://images.unsplash.com/photo-1558961363-fa8fdf82db35?w=800&auto=format&fit=crop&q=80',
             sizeBytes: 230000,
             mimeType: 'image/jpeg',
-            timestamp: new Date().toISOString(),
-            quality: {
-              isAcceptable: true,
-              blurScore: 85,
-              brightnessScore: 66,
-              glareDetected: false,
-              textLegibilityEstimated: true,
-              warnings: [],
-            },
+            timestamp: now,
+            quality: { isAcceptable: true, blurScore: 85, brightnessScore: 66, glareDetected: false, textLegibilityEstimated: true, warnings: [] },
           },
         ],
         result: {
           id: 'res_002',
           inspectionId: 'INSP-2026-002',
           overallStatus: 'NON_COMPLIANT',
-          score: {
-            score: 38,
-            formulaExplanation: 'Base 100 - (Violations: 2 × 30 pts) - (Warnings: 1 × 10 pts) across 10 statutory checks.',
-            passCount: 5,
-            failCount: 2,
-            warningCount: 1,
-            notDeterminableCount: 0,
-            notApplicableCount: 2,
-            totalRulesEvaluated: 10,
-          },
+          score: { score: 38, formulaExplanation: 'Base 100 - (Violations: 2 × 30 pts) - (Warnings: 1 × 10 pts) across 10 statutory checks.', passCount: 5, failCount: 2, warningCount: 1, notDeterminableCount: 0, notApplicableCount: 2, totalRulesEvaluated: 10 },
           confidence: 'HIGH',
           confidenceScore: 90,
-          confidenceReasons: [
-            'Comprehensive package coverage: 2 distinct panels submitted.',
-            'High AI optical extraction confidence (91%).',
-          ],
+          confidenceReasons: ['Comprehensive package coverage: 2 distinct panels submitted.', 'High AI optical extraction confidence (91%).'],
           productCategory: 'FOOD (BAKERY & CONFECTIONERY)',
           isCategoryIdentified: true,
           assessedAt: new Date(Date.now() - 1 * 86400000).toISOString(),
@@ -438,53 +366,9 @@ class InspectionRepository {
             overall_extraction_confidence: 0.91,
           },
           evaluations: [
-            {
-              rule_id: 'LMPC-R06-QTY',
-              rule_name: 'Net Quantity in Standard Metric Units',
-              category: 'NET_QUANTITY',
-              status: 'FAIL',
-              detected_value: '250 gms approx',
-              issue: 'Prohibited non-standard symbol "gms" and qualifier "approx" used.',
-              explanation: 'Rule 13 strictly prohibits plural abbreviations like "gms" and words like "approx". Standard metric unit "g" is mandatory.',
-              recommendation: 'Re-print net quantity strictly as "250 g" without qualifiers.',
-              evidence: { snippet: 'Net Wt: 250 gms approx', source_side: 'front', confidence: 0.95 },
-              source_images: ['img_s2_1'],
-              confidence: 0.95,
-              legal_reference: 'Rule 6(1)(d), Rule 12 & Rule 13, LMPC Rules, 2011',
-              legal_source: 'Dept. of Consumer Affairs',
-              statutory_penalty_ref: 'Section 36(1), Legal Metrology Act, 2009',
-            },
-            {
-              rule_id: 'LMPC-R06-MRP',
-              rule_name: 'Maximum Retail Price (MRP) with All Taxes Included',
-              category: 'MRP',
-              status: 'WARNING',
-              detected_value: 'Rs 60.00 (Tax wording omitted)',
-              issue: 'Retail price declared without mandatory "inclusive of all taxes" statement.',
-              explanation: 'Rule 6(1)(e) requires retail price to be declared with "incl. of all taxes" to prevent arbitrary consumer tax surcharges.',
-              recommendation: 'Include "incl. of all taxes" explicitly in the price declaration block.',
-              evidence: { snippet: 'MRP Rs 60.00', source_side: 'back', confidence: 0.92 },
-              source_images: ['img_s2_2'],
-              confidence: 0.9,
-              legal_reference: 'Rule 6(1)(e), LMPC Rules, 2011',
-              legal_source: 'Dept. of Consumer Affairs',
-            },
-            {
-              rule_id: 'LMPC-R06-CC',
-              rule_name: 'Consumer Care Contact Details',
-              category: 'CONSUMER_CARE',
-              status: 'FAIL',
-              detected_value: 'Only Mobile Number (9811000000); Email and Postal Address Missing',
-              issue: 'Incomplete consumer grievance redressal channels.',
-              explanation: 'Rule 6(1)(h) mandates complete consumer contact details: contact person/office, physical address, phone number, and email address.',
-              recommendation: 'Add official email address and physical office address of the consumer cell.',
-              evidence: { snippet: 'Helpline: 9811000000 (No email/address provided)', source_side: 'back', confidence: 0.85 },
-              source_images: ['img_s2_2'],
-              confidence: 0.9,
-              legal_reference: 'Rule 6(1)(h), LMPC Rules, 2011',
-              legal_source: 'Dept. of Consumer Affairs',
-              statutory_penalty_ref: 'Section 36(1), Legal Metrology Act, 2009',
-            },
+            { rule_id: 'LMPC-R06-QTY', rule_name: 'Net Quantity in Standard Metric Units', category: 'NET_QUANTITY', status: 'FAIL', detected_value: '250 gms approx', issue: 'Prohibited non-standard symbol "gms" and qualifier "approx" used.', explanation: 'Rule 13 strictly prohibits plural abbreviations like "gms" and words like "approx". Standard metric unit "g" is mandatory.', recommendation: 'Re-print net quantity strictly as "250 g" without qualifiers.', evidence: { snippet: 'Net Wt: 250 gms approx', source_side: 'front', confidence: 0.95 }, source_images: ['img_s2_1'], confidence: 0.95, legal_reference: 'Rule 6(1)(d), Rule 12 & Rule 13, LMPC Rules, 2011', legal_source: 'Dept. of Consumer Affairs', statutory_penalty_ref: 'Section 36(1), Legal Metrology Act, 2009' },
+            { rule_id: 'LMPC-R06-MRP', rule_name: 'Maximum Retail Price (MRP) with All Taxes Included', category: 'MRP', status: 'WARNING', detected_value: 'Rs 60.00 (Tax wording omitted)', issue: 'Retail price declared without mandatory "inclusive of all taxes" statement.', explanation: 'Rule 6(1)(e) requires retail price to be declared with "incl. of all taxes" to prevent arbitrary consumer tax surcharges.', recommendation: 'Include "incl. of all taxes" explicitly in the price declaration block.', evidence: { snippet: 'MRP Rs 60.00', source_side: 'back', confidence: 0.92 }, source_images: ['img_s2_2'], confidence: 0.9, legal_reference: 'Rule 6(1)(e), LMPC Rules, 2011', legal_source: 'Dept. of Consumer Affairs' },
+            { rule_id: 'LMPC-R06-CC', rule_name: 'Consumer Care Contact Details', category: 'CONSUMER_CARE', status: 'FAIL', detected_value: 'Only Mobile Number (9811000000); Email and Postal Address Missing', issue: 'Incomplete consumer grievance redressal channels.', explanation: 'Rule 6(1)(h) mandates complete consumer contact details: contact person/office, physical address, phone number, and email address.', recommendation: 'Add official email address and physical office address of the consumer cell.', evidence: { snippet: 'Helpline: 9811000000 (No email/address provided)', source_side: 'back', confidence: 0.85 }, source_images: ['img_s2_2'], confidence: 0.9, legal_reference: 'Rule 6(1)(h), LMPC Rules, 2011', legal_source: 'Dept. of Consumer Affairs', statutory_penalty_ref: 'Section 36(1), Legal Metrology Act, 2009' },
           ],
         },
       },
@@ -506,37 +390,18 @@ class InspectionRepository {
             url: 'https://images.unsplash.com/photo-1576092768241-dec231879fc3?w=800&auto=format&fit=crop&q=80',
             sizeBytes: 195000,
             mimeType: 'image/jpeg',
-            timestamp: new Date().toISOString(),
-            quality: {
-              isAcceptable: true,
-              blurScore: 78,
-              brightnessScore: 74,
-              glareDetected: false,
-              textLegibilityEstimated: true,
-              warnings: [],
-            },
+            timestamp: now,
+            quality: { isAcceptable: true, blurScore: 78, brightnessScore: 74, glareDetected: false, textLegibilityEstimated: true, warnings: [] },
           },
         ],
         result: {
           id: 'res_003',
           inspectionId: 'INSP-2026-003',
           overallStatus: 'INSUFFICIENT_EVIDENCE',
-          score: {
-            score: 45,
-            formulaExplanation: 'Score reflects partial single-side evaluation. 4 mandatory declarations marked NOT_DETERMINABLE due to missing back panel.',
-            passCount: 3,
-            failCount: 0,
-            warningCount: 0,
-            notDeterminableCount: 4,
-            notApplicableCount: 3,
-            totalRulesEvaluated: 10,
-          },
+          score: { score: 45, formulaExplanation: 'Score reflects partial single-side evaluation. 4 mandatory declarations marked NOT_DETERMINABLE due to missing back panel.', passCount: 3, failCount: 0, warningCount: 0, notDeterminableCount: 4, notApplicableCount: 3, totalRulesEvaluated: 10 },
           confidence: 'LOW',
           confidenceScore: 35,
-          confidenceReasons: [
-            'Single panel submission: Only 1 side uploaded; missing sides lower certainty.',
-            '4 rules could not be determined due to missing package panels.',
-          ],
+          confidenceReasons: ['Single panel submission: Only 1 side uploaded; missing sides lower certainty.', '4 rules could not be determined due to missing package panels.'],
           productCategory: 'BEVERAGES (TEA & INFUSIONS)',
           isCategoryIdentified: true,
           assessedAt: new Date(Date.now() - 3 * 86400000).toISOString(),
@@ -573,43 +438,18 @@ class InspectionRepository {
             overall_extraction_confidence: 0.74,
           },
           evaluations: [
-            {
-              rule_id: 'LMPC-R06-MFG',
-              rule_name: 'Manufacturer / Packer Identity & Complete Address',
-              category: 'IDENTITY',
-              status: 'NOT_DETERMINABLE',
-              detected_value: 'Not detected on Front panel',
-              issue: 'Manufacturer/Packer details were not visible on the submitted front image.',
-              explanation: 'Only front panel was submitted. Manufacturer address normally appears on back or side panels.',
-              recommendation: 'Upload back and side panels for complete statutory determination.',
-              evidence: { snippet: 'No manufacturer text visible on front image' },
-              source_images: [],
-              confidence: 0.5,
-              legal_reference: 'Rule 6(1)(a) & (b), LMPC Rules, 2011',
-              legal_source: 'Dept. of Consumer Affairs',
-            },
-            {
-              rule_id: 'LMPC-R06-MRP',
-              rule_name: 'Maximum Retail Price (MRP) with All Taxes Included',
-              category: 'MRP',
-              status: 'NOT_DETERMINABLE',
-              detected_value: 'Not detected on Front panel',
-              issue: 'MRP not located on front display panel.',
-              explanation: 'MRP is stamped on the back or base of the carton.',
-              recommendation: 'Upload back or bottom panel showing price label.',
-              evidence: { snippet: 'No MRP block found on front panel' },
-              source_images: [],
-              confidence: 0.5,
-              legal_reference: 'Rule 6(1)(e), LMPC Rules, 2011',
-              legal_source: 'Dept. of Consumer Affairs',
-            },
+            { rule_id: 'LMPC-R06-MFG', rule_name: 'Manufacturer / Packer Identity & Complete Address', category: 'IDENTITY', status: 'NOT_DETERMINABLE', detected_value: 'Not detected on Front panel', issue: 'Manufacturer/Packer details were not visible on the submitted front image.', explanation: 'Only front panel was submitted. Manufacturer address normally appears on back or side panels.', recommendation: 'Upload back and side panels for complete statutory determination.', evidence: { snippet: 'No manufacturer text visible on front image' }, source_images: [], confidence: 0.5, legal_reference: 'Rule 6(1)(a) & (b), LMPC Rules, 2011', legal_source: 'Dept. of Consumer Affairs' },
+            { rule_id: 'LMPC-R06-MRP', rule_name: 'Maximum Retail Price (MRP) with All Taxes Included', category: 'MRP', status: 'NOT_DETERMINABLE', detected_value: 'Not detected on Front panel', issue: 'MRP not located on front display panel.', explanation: 'MRP is stamped on the back or base of the carton.', recommendation: 'Upload back or bottom panel showing price label.', evidence: { snippet: 'No MRP block found on front panel' }, source_images: [], confidence: 0.5, legal_reference: 'Rule 6(1)(e), LMPC Rules, 2011', legal_source: 'Dept. of Consumer Affairs' },
           ],
         },
       },
     ];
 
-    samples.forEach(s => this.inspections.set(s.id, s));
-    this.saveToFile();
+    for (const sample of samples) {
+      await this.save(sample);
+    }
+
+    console.log('Seeded', samples.length, 'sample inspections into Supabase.');
   }
 }
 
