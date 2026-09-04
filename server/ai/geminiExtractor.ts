@@ -360,8 +360,17 @@ CRITICAL RULES:
       },
     });
 
-    const parsed = JSON.parse(response.text?.trim() || '{}');
-    return normalizeParsedDeclarations(parsed, images);
+    const rawText = response.text?.trim() || '{}';
+
+console.log('GEMINI RAW RESPONSE:', rawText);
+
+try {
+  const parsed = JSON.parse(rawText);
+  return normalizeParsedDeclarations(parsed, images);
+} catch (error) {
+  console.error('Invalid Gemini JSON:', rawText);
+  throw new Error(`Gemini returned invalid JSON: ${rawText}`);
+}
   } catch (error) {
     console.error('Gemini extraction error:', error);
     return fallbackExtraction(images);
