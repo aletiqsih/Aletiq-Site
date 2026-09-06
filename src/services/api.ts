@@ -7,9 +7,11 @@ import {
   ImprovementNotice,
 } from '../types';
 
+const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || '').replace(/\/$/, '');
+
 export const api = {
   async checkHealth() {
-    const res = await fetch('/api/health');
+    const res = await fetch(`${API_BASE_URL}/api/health`);
     return res.json();
   },
 
@@ -17,12 +19,12 @@ export const api = {
     const params = new URLSearchParams();
     if (category && category !== 'ALL') params.set('category', category);
     if (search) params.set('search', search);
-    const res = await fetch(`/api/rules?${params.toString()}`);
+    const res = await fetch(`${API_BASE_URL}/api/rules?${params.toString()}`);
     return res.json();
   },
 
   async getRuleById(id: string): Promise<{ success: boolean; data: LegalRule }> {
-    const res = await fetch(`/api/rules/${id}`);
+    const res = await fetch(`${API_BASE_URL}/api/rules/${id}`);
     return res.json();
   },
 
@@ -30,17 +32,17 @@ export const api = {
     const params = new URLSearchParams();
     if (status && status !== 'ALL') params.set('status', status);
     if (search) params.set('search', search);
-    const res = await fetch(`/api/inspections?${params.toString()}`);
+    const res = await fetch(`${API_BASE_URL}/api/inspections?${params.toString()}`);
     return res.json();
   },
 
   async getInspectionById(id: string): Promise<{ success: boolean; data: Inspection }> {
-    const res = await fetch(`/api/inspections/${id}`);
+    const res = await fetch(`${API_BASE_URL}/api/inspections/${id}`);
     return res.json();
   },
 
   async createInspection(data: Partial<Inspection>): Promise<{ success: boolean; data: Inspection }> {
-    const res = await fetch('/api/inspections', {
+    const res = await fetch(`${API_BASE_URL}/api/inspections`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data),
@@ -49,7 +51,7 @@ export const api = {
   },
 
   async uploadImage(inspectionId: string, image: Partial<InspectionImage>): Promise<{ success: boolean; data: Inspection }> {
-    const res = await fetch(`/api/inspections/${inspectionId}/images`, {
+    const res = await fetch(`${API_BASE_URL}/api/inspections/${inspectionId}/images`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ image }),
@@ -58,14 +60,14 @@ export const api = {
   },
 
   async deleteImage(inspectionId: string, imageId: string): Promise<{ success: boolean; data: Inspection }> {
-    const res = await fetch(`/api/inspections/${inspectionId}/images/${imageId}`, {
+    const res = await fetch(`${API_BASE_URL}/api/inspections/${inspectionId}/images/${imageId}`, {
       method: 'DELETE',
     });
     return res.json();
   },
 
   async runAnalysis(inspectionId: string): Promise<{ success: boolean; data: Inspection; error?: string }> {
-    const res = await fetch(`/api/inspections/${inspectionId}/analyze`, {
+    const res = await fetch(`${API_BASE_URL}/api/inspections/${inspectionId}/analyze`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
     });
@@ -73,7 +75,7 @@ export const api = {
   },
 
   async deleteInspection(id: string): Promise<{ success: boolean }> {
-    const res = await fetch(`/api/inspections/${id}`, {
+    const res = await fetch(`${API_BASE_URL}/api/inspections/${id}`, {
       method: 'DELETE',
     });
     return res.json();
@@ -83,7 +85,7 @@ export const api = {
     inspectionId: string,
     listing: DigitalListing
   ): Promise<{ success: boolean; data: Inspection }> {
-    const res = await fetch(`/api/inspections/${inspectionId}/compare`, {
+    const res = await fetch(`${API_BASE_URL}/api/inspections/${inspectionId}/compare`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ listing }),
@@ -92,17 +94,17 @@ export const api = {
   },
 
   async getImprovementNotice(inspectionId: string): Promise<{ success: boolean; data: ImprovementNotice }> {
-    const res = await fetch(`/api/inspections/${inspectionId}/notice`);
+    const res = await fetch(`${API_BASE_URL}/api/inspections/${inspectionId}/notice`);
     return res.json();
   },
 
   async getRiskIntelligence(): Promise<{ success: boolean; data: RiskIntelligenceAnalytics }> {
-    const res = await fetch('/api/analytics/risk-intelligence');
+    const res = await fetch(`${API_BASE_URL}/api/analytics/risk-intelligence`);
     return res.json();
   },
 
   async seedDemoData(): Promise<{ success: boolean }> {
-    const res = await fetch('/api/demo/seed', { method: 'POST' });
+    const res = await fetch(`${API_BASE_URL}/api/demo/seed`, { method: 'POST' });
     return res.json();
   },
 };
