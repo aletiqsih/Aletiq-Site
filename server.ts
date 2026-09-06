@@ -14,7 +14,7 @@ import { Inspection, InspectionImage } from './src/types';
 
 async function startServer() {
   const app = express();
-  const PORT = 3000;
+  const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 3000;
 
   // Increase payload limit for base64 package photos
   app.use(express.json({ limit: '50mb' }));
