@@ -1,16 +1,12 @@
-import { createClient } from '@supabase/supabase-js';
+import dotenv from 'dotenv';
+dotenv.config();
 
-const supabaseUrl = process.env.SUPABASE_URL;
-const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+import { createClient, SupabaseClient } from '@supabase/supabase-js';
 
-if (!supabaseUrl || !supabaseKey) {
-  throw new Error(
-    'Missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY environment variables. ' +
-    'Please set them in your .env file.'
-  );
-}
+const supabaseUrl = process.env.SUPABASE_URL || 'https://drwlnwxgycfazkekcgql.supabase.co';
+const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRyd2xud3hneWNmYXprZWtjZ3FsIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4ODUzMzI5NiwiZXhwIjoyMTA0MTA5Mjk2fQ.W0hlKe-r-XguGXrfvF8K3GltsqI-DuGYbnOGXhdC2h0';
 
-export const supabase = createClient(supabaseUrl, supabaseKey, {
+export const supabase: SupabaseClient = createClient(supabaseUrl, supabaseKey, {
   auth: {
     persistSession: false,
     autoRefreshToken: false,

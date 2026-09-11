@@ -141,5 +141,19 @@ export const LEGAL_RULES: LegalRule[] = [
     required_fields: ['expiry_date', 'best_before'],
     description: 'Packages containing commodities which may become unfit for human consumption or lose their efficacy after a period shall bear the "Best Before" or "Use by" date (Month & Year or Date/Month/Year).',
     statutory_penalty_ref: 'Section 36(1), Legal Metrology Act, 2009'
+  },
+  {
+    rule_id: 'LMPC-R06-ECOM',
+    rule_name: 'E-Commerce Marketplace Digital Declarations Alignment',
+    category: 'ECOMMERCE',
+    legal_reference: 'Rule 6(10), Legal Metrology (Packaged Commodities) Rules, 2011 & Consumer Protection (E-Commerce) Rules',
+    legal_source: 'Ministry of Consumer Affairs, Food & Public Distribution',
+    legal_source_url: 'https://consumeraffairs.nic.in/acts-and-rules/legal-metrology',
+    rule_version: '2024.1-IN',
+    effective_from: '2018-01-01',
+    applicability_conditions: ['ECOMMERCE_ENTITIES', 'MARKETPLACE_PRODUCT_LISTINGS'],
+    required_fields: ['product_name', 'mrp', 'net_quantity', 'manufacturer_name', 'country_of_origin', 'consumer_care_phone'],
+    description: 'An e-commerce entity shall ensure that the mandatory declarations including name of manufacturer/packer, country of origin, net quantity, best before/expiry, maximum retail price (MRP) and consumer care details are clearly displayed on the digital marketplace product listing page.',
+    statutory_penalty_ref: 'Section 36(1) & Section 49, Legal Metrology Act, 2009 & Rule 7 Consumer Protection E-Commerce Rules'
   }
 ];

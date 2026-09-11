@@ -89,7 +89,7 @@ export interface ExtractedDeclarations {
 export interface LegalRule {
   rule_id: string;
   rule_name: string;
-  category: 'IDENTITY' | 'COMMODITY' | 'NET_QUANTITY' | 'MRP' | 'DATES' | 'CONSUMER_CARE' | 'ORIGIN' | 'DISPLAY_PANEL' | 'SPECIAL_CATEGORY';
+  category: 'IDENTITY' | 'COMMODITY' | 'NET_QUANTITY' | 'MRP' | 'DATES' | 'CONSUMER_CARE' | 'ORIGIN' | 'DISPLAY_PANEL' | 'SPECIAL_CATEGORY' | 'ECOMMERCE';
   legal_reference: string;
   legal_source: string;
   legal_source_url?: string;
@@ -228,6 +228,32 @@ export interface Inspection {
   notes?: string;
 }
 
+export type UrlExtractionTier = 'JSON_LD' | 'OPEN_GRAPH' | 'HTML_DOM' | 'AI_ASSISTED' | 'MANUAL_FALLBACK';
+
+export interface ProductUrlAnalysisRequest {
+  url: string;
+  inspectionId?: string;
+  platform?: string;
+}
+
+export interface ProductUrlAnalysisResponse {
+  success: boolean;
+  sourceUrl: string;
+  platform?: string;
+  extractionTier: UrlExtractionTier;
+  confidence: number;
+  extractedFieldsCount: number;
+  missingFieldsCount: number;
+  listing: DigitalListing;
+  extractedDeclarations: ExtractedDeclarations;
+  complianceResult: ComplianceResult;
+  comparison?: ComparisonResult;
+  inspection?: Inspection;
+  warnings?: string[];
+  error?: string;
+  fallbackAvailable?: boolean;
+}
+
 export interface RiskIntelligenceAnalytics {
   totalInspections: number;
   compliantCount: number;
@@ -261,3 +287,5 @@ export interface RiskIntelligenceAnalytics {
     complianceRate: number;
   }>;
 }
+
+

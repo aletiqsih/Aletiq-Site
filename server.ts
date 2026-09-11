@@ -10,6 +10,7 @@ import { extractPackageDeclarationsWithGemini } from './server/ai/geminiExtracto
 import { evaluateLegalMetrologyCompliance } from './server/engine/ruleEngine';
 import { comparePackageWithDigitalListing } from './server/services/comparisonService';
 import { generateImprovementNoticeDraft } from './server/services/noticeService';
+import { analyzeProductUrlService, getSampleMockProductHtml } from './server/services/ecommerceExtractor';
 import { Inspection, InspectionImage } from './src/types';
 
 async function startServer() {
@@ -289,6 +290,36 @@ async function startServer() {
     } catch (e: any) {
       res.status(500).json({ success: false, error: e.message });
     }
+  });
+
+  // 5b. URL-Based E-Commerce Product Compliance Analysis
+  app.post('/api/product/analyze-url', async (req, res) => {
+    try {
+      const { url, inspectionId } = req.body;
+      if (!url || typeof url !== 'string' || !url.trim()) {
+        return res.status(400).json({
+          success: false,
+          error: 'Please enter a valid e-commerce product URL (e.g., https://example.com/product/item-name)',
+        });
+      }
+
+      const result = await analyzeProductUrlService(url.trim(), inspectionId);
+      res.json(result);
+    } catch (e: any) {
+      console.error('URL extraction & compliance error:', e);
+      res.status(500).json({
+        success: false,
+        error: e.message || 'Unable to automatically extract product information from this website.',
+        fallbackAvailable: true,
+      });
+    }
+  });
+
+  // 5c. Controlled Mock E-Commerce Product HTML endpoint for live testing
+  app.get('/api/mock/sample-product', (req, res) => {
+    const html = getSampleMockProductHtml('https://demo.aletiq.gov.in/sample/cashew-cookies-500g');
+    res.setHeader('Content-Type', 'text/html; charset=utf-8');
+    res.send(html);
   });
 
   // 6. Get Improvement Notice Draft

@@ -5,6 +5,7 @@ import {
   RiskIntelligenceAnalytics,
   DigitalListing,
   ImprovementNotice,
+  ProductUrlAnalysisResponse,
 } from '../types';
 
 const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || '').replace(/\/$/, '');
@@ -117,6 +118,17 @@ export const api = {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ listing }),
+    });
+  },
+
+  async analyzeProductUrl(
+    url: string,
+    inspectionId?: string
+  ): Promise<ProductUrlAnalysisResponse> {
+    return fetchJson(`${API_BASE_URL}/api/product/analyze-url`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ url, inspectionId }),
     });
   },
 
