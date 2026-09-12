@@ -1017,13 +1017,13 @@ function calculateComplianceScore(evaluations: RuleEvaluation[]): ComplianceScor
   
   let score = 100;
   if (activeRulesCount > 0) {
-    const penalty = (failCount * 30) + (warningCount * 10);
+    const penalty = (failCount * 250) + (warningCount * 50);
     score = Math.max(0, Math.min(100, Math.round(100 - (penalty / (activeRulesCount + failCount * 0.5)) * 1.2)));
   } else if (notDeterminableCount > 0 && passCount === 0) {
     score = 0;
   }
 
-  const formulaExplanation = `Base 100 - (Violations: ${failCount} × 30 pts) - (Warnings: ${warningCount} × 10 pts) normalized against ${activeRulesCount} evaluated rules. (Inspections with unresolved sides are marked NOT_DETERMINABLE and do not inflate score).`;
+  const formulaExplanation = `Base 100 - (Violations: ${failCount} × 250 pts) - (Warnings: ${warningCount} × 50 pts) normalized against ${activeRulesCount} evaluated rules. (Inspections with unresolved sides are marked NOT_DETERMINABLE and do not inflate score).`;
 
   return {
     score,
