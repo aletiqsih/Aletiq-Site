@@ -24,6 +24,11 @@ async function fetchJson<T>(url: string, options?: RequestInit): Promise<T> {
   if (!contentType.includes('application/json')) {
     const text = await res.text();
     if (!res.ok) {
+      if (res.status === 404 && !API_BASE_URL) {
+        throw new Error(
+          `Server returned HTTP 404 for "${url}". When hosting frontend separately (e.g. on Vercel), set VITE_API_BASE_URL in your Vercel Environment Variables pointing to your deployed Render backend URL (e.g., https://your-service.onrender.com).`
+        );
+      }
       throw new Error(`Server returned HTTP ${res.status} (${res.statusText}): ${text.slice(0, 150) || 'Empty response'}`);
     }
     if (text.startsWith('<!DOCTYPE') || text.startsWith('<html')) {
