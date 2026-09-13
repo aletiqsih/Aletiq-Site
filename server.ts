@@ -39,8 +39,6 @@ async function startServer() {
 
   // Authentication & Inspector Login (Turnstile CAPTCHA + JWT)
   app.use('/api/auth', authRouter);
-  app.use('/api', authRouter);
-  app.use('/auth', authRouter);
 
   // 1. Health Check
   app.get('/api/health', (req, res) => {
