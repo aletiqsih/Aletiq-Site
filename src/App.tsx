@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Navbar } from './components/Navbar';
 import { DashboardView } from './components/DashboardView';
 import { NewInspectionView } from './components/NewInspectionView';
@@ -9,27 +9,12 @@ import { RuleDatabaseView } from './components/RuleDatabaseView';
 import { InspectionReportModal } from './components/InspectionReportModal';
 import { NoticeDraftModal } from './components/NoticeDraftModal';
 import { DigitalComparisonModal } from './components/DigitalComparisonModal';
-import { InspectorLogin } from './components/InspectorLogin';
 import { api } from './services/api';
-import { authService } from './services/authService';
-import { Inspection, RiskIntelligenceAnalytics, InspectorUser } from './types';
-import { Loader2 } from 'lucide-react';
+import { Inspection, RiskIntelligenceAnalytics } from './types';
+import { ShieldCheck, Loader2 } from 'lucide-react';
 
 export default function App() {
-  // Initialize tab based on URL path
-  const getInitialTabFromPath = (): string => {
-    const path = window.location.pathname.toLowerCase();
-    if (path === '/inspector/login' || path === '/login') {
-      return 'inspector_login';
-    }
-    if (path === '/inspector/dashboard') {
-      return 'dashboard';
-    }
-    return 'dashboard';
-  };
-
-  const [currentTab, setCurrentTab] = useState<string>(getInitialTabFromPath);
-  const [currentUser, setCurrentUser] = useState<InspectorUser | null>(() => authService.getCurrentUser());
+  const [currentTab, setCurrentTab] = useState<string>('dashboard');
   const [inspections, setInspections] = useState<Inspection[]>([]);
   const [selectedInspectionId, setSelectedInspectionId] = useState<string | null>(null);
   const [analytics, setAnalytics] = useState<RiskIntelligenceAnalytics | undefined>();
@@ -38,45 +23,6 @@ export default function App() {
 
   // Modals state
   const [activeModal, setActiveModal] = useState<'report' | 'notice' | 'comparison' | null>(null);
-
-  // Sync URL with tab state
-  const updateUrlForTab = useCallback((tab: string) => {
-    let targetPath = '/';
-    if (tab === 'inspector_login') {
-      targetPath = '/inspector/login';
-    } else if (tab === 'dashboard' && authService.isAuthenticated()) {
-      targetPath = '/inspector/dashboard';
-    } else if (tab === 'dashboard') {
-      targetPath = '/';
-    }
-
-    if (window.location.pathname !== targetPath) {
-      window.history.pushState({ tab }, '', targetPath);
-    }
-  }, []);
-
-  // Listen to popstate (browser back/forward)
-  useEffect(() => {
-    const handlePopState = () => {
-      const path = window.location.pathname.toLowerCase();
-      if (path === '/inspector/login' || path === '/login') {
-        setCurrentTab('inspector_login');
-      } else if (path === '/inspector/dashboard' || path === '/') {
-        setCurrentTab('dashboard');
-      }
-    };
-
-    window.addEventListener('popstate', handlePopState);
-    return () => window.removeEventListener('popstate', handlePopState);
-  }, []);
-
-  // Subscribe to auth service session updates
-  useEffect(() => {
-    const unsubscribe = authService.subscribe(session => {
-      setCurrentUser(session ? session.user : null);
-    });
-    return unsubscribe;
-  }, []);
 
   const fetchAllData = async () => {
     try {
@@ -102,12 +48,6 @@ export default function App() {
   useEffect(() => {
     fetchAllData();
   }, []);
-
-  const handleSelectTab = (tab: string) => {
-    setCurrentTab(tab);
-    updateUrlForTab(tab);
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-  };
 
   const handleSelectInspection = (id: string) => {
     setSelectedInspectionId(id);
@@ -152,39 +92,18 @@ export default function App() {
     }
   };
 
-  const handleLoginSuccess = (user: InspectorUser) => {
-    setCurrentUser(user);
-    handleSelectTab('dashboard');
-  };
-
-  const handleLogout = () => {
-    authService.logout();
-    setCurrentUser(null);
-    handleSelectTab('dashboard');
-  };
-
   const selectedInspection = inspections.find(i => i.id === selectedInspectionId);
-
-  // If currently on Inspector Login view, render dedicated Inspector Login page
-  if (currentTab === 'inspector_login') {
-    return (
-      <InspectorLogin
-        onLoginSuccess={handleLoginSuccess}
-        onReturnToApp={() => handleSelectTab('dashboard')}
-      />
-    );
-  }
 
   return (
     <div className="min-h-screen bg-slate-100 text-slate-900 flex flex-col font-sans antialiased">
       {/* Navbar */}
       <Navbar
         currentTab={currentTab}
-        onSelectTab={handleSelectTab}
+        onSelectTab={tab => {
+          setCurrentTab(tab);
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+        }}
         onNewInspection={handleStartNewInspection}
-        currentUser={currentUser}
-        onOpenLogin={() => handleSelectTab('inspector_login')}
-        onLogout={handleLogout}
       />
 
       {/* Main Container */}
@@ -205,9 +124,9 @@ export default function App() {
                 analytics={analytics}
                 onSelectInspection={handleSelectInspection}
                 onNewInspection={handleStartNewInspection}
-                onViewAllRecords={() => handleSelectTab('history')}
-                onViewRiskIntelligence={() => handleSelectTab('risk_intelligence')}
-                onViewRuleDatabase={() => handleSelectTab('rule_database')}
+                onViewAllRecords={() => setCurrentTab('history')}
+                onViewRiskIntelligence={() => setCurrentTab('risk_intelligence')}
+                onViewRuleDatabase={() => setCurrentTab('rule_database')}
                 onLoadPreset={handleLoadPreset}
               />
             )}
@@ -216,9 +135,8 @@ export default function App() {
             {currentTab === 'new_inspection' && (
               <NewInspectionView
                 initialPresetId={initialPresetId}
-                currentUser={currentUser}
                 onInspectionCreated={handleInspectionCreated}
-                onCancel={() => handleSelectTab('dashboard')}
+                onCancel={() => setCurrentTab('dashboard')}
               />
             )}
 
@@ -226,7 +144,7 @@ export default function App() {
             {currentTab === 'inspection_detail' && selectedInspection && (
               <InspectionDetailView
                 inspection={selectedInspection}
-                onBack={() => handleSelectTab('history')}
+                onBack={() => setCurrentTab('history')}
                 onOpenReport={() => setActiveModal('report')}
                 onOpenNotice={() => setActiveModal('notice')}
                 onOpenComparison={() => setActiveModal('comparison')}
@@ -269,21 +187,11 @@ export default function App() {
             selectedInspection.noticeDraft || {
               noticeNumber: `ALETIQ/LMD-SIH/2026/INSP-${selectedInspection.id}`,
               date: new Date().toLocaleDateString('en-IN'),
-              inspectorName: currentUser
-                ? `${currentUser.name}`
-                : selectedInspection.inspectorName || 'Legal Metrology Inspector',
-              inspectorDesignation: currentUser
-                ? currentUser.designation
-                : 'Inspector of Legal Metrology (Enforcement)',
-              issuingAuthority: currentUser
-                ? currentUser.department
-                : 'Office of the Controller of Legal Metrology, Dept. of Consumer Affairs',
-              entityName:
-                selectedInspection.result?.extractedDeclarations.manufacturer_name?.value ||
-                'The Manufacturer / Packer',
-              entityAddress:
-                selectedInspection.result?.extractedDeclarations.manufacturer_address?.value ||
-                'Distribution Records',
+              inspectorName: selectedInspection.inspectorName || 'Legal Metrology Inspector',
+              inspectorDesignation: 'Inspector of Legal Metrology (Enforcement)',
+              issuingAuthority: 'Office of the Controller of Legal Metrology, Dept. of Consumer Affairs',
+              entityName: selectedInspection.result?.extractedDeclarations.manufacturer_name?.value || 'The Manufacturer / Packer',
+              entityAddress: selectedInspection.result?.extractedDeclarations.manufacturer_address?.value || 'Distribution Records',
               productName: selectedInspection.productName || 'Packaged Commodity',
               batchNumber: selectedInspection.batchNumber || 'As Inspected',
               issues: [],
@@ -322,4 +230,3 @@ export default function App() {
     </div>
   );
 }
-

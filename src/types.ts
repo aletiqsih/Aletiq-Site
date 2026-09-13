@@ -288,43 +288,4 @@ export interface RiskIntelligenceAnalytics {
   }>;
 }
 
-export type InspectorRole = 'INSPECTOR' | 'SENIOR_INSPECTOR' | 'CONTROLLER_LEGAL_METROLOGY' | 'ADMIN';
-
-export interface InspectorUser {
-  id: string;
-  badgeId: string;
-  name: string;
-  designation: string;
-  department: string;
-  zone: string;
-  email: string;
-  phone?: string;
-  role: InspectorRole;
-  jurisdiction: string;
-  activeSince: string;
-  lastLogin?: string;
-  avatarUrl?: string;
-}
-
-export interface LoginCredentials {
-  identifier: string; // Email or Inspector Badge ID
-  password: string;
-  rememberMe?: boolean;
-}
-
-export interface AuthSession {
-  user: InspectorUser;
-  token: string;
-  expiresAt: string;
-  rememberMe: boolean;
-}
-
-export interface AuthResult {
-  success: boolean;
-  user?: InspectorUser;
-  token?: string;
-  error?: string;
-}
-
-
 
