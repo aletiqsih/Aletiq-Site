@@ -1,0 +1,248 @@
+import { InspectorUser, LoginCredentials, AuthSession, AuthResult } from '../types';
+
+const STORAGE_KEY = 'aletiq_inspector_session';
+
+// Pre-registered official inspector profiles for evaluation and demonstration
+export const SAMPLE_INSPECTORS: Array<{
+  user: InspectorUser;
+  defaultPassword: string;
+}> = [
+  {
+    user: {
+      id: 'insp-001',
+      badgeId: 'DL-INSP-2026-089',
+      name: 'P. K. Verma',
+      designation: 'Senior Enforcement Inspector',
+      department: 'Directorate of Legal Metrology, Dept. of Consumer Affairs',
+      zone: 'Delhi Enforcement Zone (North & Central)',
+      email: 'inspector.verma@delhi.gov.in',
+      phone: '+91 11 2338 4591',
+      role: 'SENIOR_INSPECTOR',
+      jurisdiction: 'NCT of Delhi — E-Commerce & Retail Packaging Cell',
+      activeSince: '2021-04-15',
+    },
+    defaultPassword: 'Password@2026',
+  },
+  {
+    user: {
+      id: 'insp-002',
+      badgeId: 'IN-LMD-001',
+      name: 'Dr. Rajesh Sharma',
+      designation: 'Controller of Legal Metrology',
+      department: 'Department of Consumer Affairs, Ministry of Consumer Affairs',
+      zone: 'HQ Central Enforcement Directorate, New Delhi',
+      email: 'controller@consumeraffairs.gov.in',
+      phone: '+91 11 2338 1204',
+      role: 'CONTROLLER_LEGAL_METROLOGY',
+      jurisdiction: 'National Jurisdiction / All Zones Supervisory Authority',
+      activeSince: '2018-01-10',
+    },
+    defaultPassword: 'Password@2026',
+  },
+  {
+    user: {
+      id: 'insp-003',
+      badgeId: 'MH-INSP-4412',
+      name: 'Ananya Kulkarni',
+      designation: 'Legal Metrology Field Inspector',
+      department: 'Office of the Controller of Legal Metrology, Maharashtra',
+      zone: 'Mumbai Metropolitan & Port Inspection Zone',
+      email: 'a.kulkarni@maharashtra.gov.in',
+      phone: '+91 22 2202 8743',
+      role: 'INSPECTOR',
+      jurisdiction: 'Mumbai Coastal & Warehouse Logistics Sector',
+      activeSince: '2023-08-01',
+    },
+    defaultPassword: 'Password@2026',
+  },
+];
+
+/**
+ * Inspector Authentication Service
+ * 
+ * Provides session management, validation, and authentication for Legal Metrology officers.
+ * Can be swapped with direct backend API (`/api/auth/inspector-login`) when backend auth is active.
+ */
+class AuthService {
+  private currentSession: AuthSession | null = null;
+  private listeners: Array<(session: AuthSession | null) => void> = [];
+
+  constructor() {
+    this.restoreSession();
+  }
+
+  private restoreSession(): void {
+    try {
+      // Check localStorage (Remember Me) first, then sessionStorage
+      const localData = localStorage.getItem(STORAGE_KEY);
+      const sessionData = sessionStorage.getItem(STORAGE_KEY);
+      const raw = localData || sessionData;
+
+      if (raw) {
+        const parsed = JSON.parse(raw) as AuthSession;
+        // Verify expiration
+        if (new Date(parsed.expiresAt).getTime() > Date.now()) {
+          this.currentSession = parsed;
+        } else {
+          this.logout();
+        }
+      }
+    } catch (e) {
+      console.warn('Failed to restore inspector auth session:', e);
+      this.currentSession = null;
+    }
+  }
+
+  /**
+   * Subscribe to auth session changes
+   */
+  public subscribe(callback: (session: AuthSession | null) => void): () => void {
+    this.listeners.push(callback);
+    return () => {
+      this.listeners = this.listeners.filter(cb => cb !== callback);
+    };
+  }
+
+  private notify(): void {
+    this.listeners.forEach(cb => cb(this.currentSession));
+  }
+
+  /**
+   * Log in an inspector using Inspector ID / Email and Password
+   */
+  public async login(credentials: LoginCredentials): Promise<AuthResult> {
+    const rawIdentifier = credentials.identifier.trim();
+    const rawPassword = credentials.password;
+
+    // Simulate network authentication latency (350ms - 500ms) for realistic UX
+    await new Promise(resolve => setTimeout(resolve, 450));
+
+    if (!rawIdentifier) {
+      return { success: false, error: 'Please enter your Inspector ID or Official Email.' };
+    }
+
+    if (!rawPassword) {
+      return { success: false, error: 'Please enter your password.' };
+    }
+
+    // Match against mock/registered inspector directory
+    const normalizedIdentifier = rawIdentifier.toLowerCase();
+    const match = SAMPLE_INSPECTORS.find(
+      item =>
+        item.user.email.toLowerCase() === normalizedIdentifier ||
+        item.user.badgeId.toLowerCase() === normalizedIdentifier ||
+        item.user.id.toLowerCase() === normalizedIdentifier
+    );
+
+    // If identifier doesn't match official directory
+    if (!match) {
+      // Also allow flexible format if valid email or official badge format (DL-INSP-xxxx, IN-LMD-xxxx)
+      const isValidBadgeFormat = /^[A-Z]{2}-INSP-\d{4}-\d{3,4}$/i.test(rawIdentifier) || /^[A-Z]{2}-LMD-\d{3,4}$/i.test(rawIdentifier);
+      const isValidEmailFormat = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(rawIdentifier);
+
+      if (!isValidBadgeFormat && !isValidEmailFormat) {
+        return {
+          success: false,
+          error: 'Unrecognized Inspector ID format. Use official Badge ID (e.g. DL-INSP-2026-089) or official .gov.in email.',
+        };
+      }
+
+      // Check standard password requirement
+      if (rawPassword.length < 6) {
+        return {
+          success: false,
+          error: 'Password must be at least 6 characters.',
+        };
+      }
+
+      // If valid syntax but unregistered inspector ID
+      return {
+        success: false,
+        error: `Inspector ID / Email "${rawIdentifier}" not found in Directorate Registry. Use demo credentials or verify badge number.`,
+      };
+    }
+
+    // Check password
+    if (rawPassword !== match.defaultPassword && rawPassword !== 'Aletiq@2026' && rawPassword !== 'Password@2026') {
+      return {
+        success: false,
+        error: 'Invalid password. Please check your credentials or use the test login credentials.',
+      };
+    }
+
+    // Authentication Success
+    const now = new Date();
+    const user: InspectorUser = {
+      ...match.user,
+      lastLogin: now.toISOString(),
+    };
+
+    const sessionDurationHours = credentials.rememberMe ? 24 * 7 : 8; // 7 days if remember me, else 8h shift
+    const expiresAt = new Date(now.getTime() + sessionDurationHours * 60 * 60 * 1000).toISOString();
+
+    const session: AuthSession = {
+      user,
+      token: `aletiq_jwt_${user.id}_${Date.now()}`,
+      expiresAt,
+      rememberMe: Boolean(credentials.rememberMe),
+    };
+
+    this.currentSession = session;
+
+    // Persist to storage
+    const serialized = JSON.stringify(session);
+    if (credentials.rememberMe) {
+      localStorage.setItem(STORAGE_KEY, serialized);
+      sessionStorage.removeItem(STORAGE_KEY);
+    } else {
+      sessionStorage.setItem(STORAGE_KEY, serialized);
+      localStorage.removeItem(STORAGE_KEY);
+    }
+
+    this.notify();
+    return { success: true, user, token: session.token };
+  }
+
+  /**
+   * Log out active inspector
+   */
+  public logout(): void {
+    this.currentSession = null;
+    localStorage.removeItem(STORAGE_KEY);
+    sessionStorage.removeItem(STORAGE_KEY);
+    this.notify();
+  }
+
+  /**
+   * Check if inspector is currently logged in with active valid session
+   */
+  public isAuthenticated(): boolean {
+    if (!this.currentSession) return false;
+    return new Date(this.currentSession.expiresAt).getTime() > Date.now();
+  }
+
+  /**
+   * Get active logged in user profile
+   */
+  public getCurrentUser(): InspectorUser | null {
+    if (!this.isAuthenticated()) return null;
+    return this.currentSession ? this.currentSession.user : null;
+  }
+
+  /**
+   * Get current auth session details
+   */
+  public getCurrentSession(): AuthSession | null {
+    if (!this.isAuthenticated()) return null;
+    return this.currentSession;
+  }
+
+  /**
+   * Sample inspectors list for quick autofill
+   */
+  public getSampleInspectors() {
+    return SAMPLE_INSPECTORS;
+  }
+}
+
+export const authService = new AuthService();

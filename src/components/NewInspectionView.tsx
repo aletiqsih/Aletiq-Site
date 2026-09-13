@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { PackageSide, InspectionImage, Inspection } from '../types';
+import { PackageSide, InspectionImage, Inspection, InspectorUser } from '../types';
 import { api } from '../services/api';
 import { analyzeImageQuality } from '../utils/imageQuality';
 import { SAMPLE_PACKAGE_PRESETS, SamplePackagePreset } from '../data/samplePackages';
@@ -23,18 +23,24 @@ interface NewInspectionViewProps {
   onInspectionCreated: (inspection: Inspection) => void;
   onCancel: () => void;
   initialPresetId?: string;
+  currentUser?: InspectorUser | null;
 }
 
 export const NewInspectionView: React.FC<NewInspectionViewProps> = ({
   onInspectionCreated,
   onCancel,
   initialPresetId,
+  currentUser,
 }) => {
   // Metadata state
   const [productName, setProductName] = useState('');
   const [brand, setBrand] = useState('');
-  const [inspectorName, setInspectorName] = useState('P. K. Verma, Senior Inspector');
-  const [inspectorLocation, setInspectorLocation] = useState('Enforcement Directorate, Delhi Zone');
+  const [inspectorName, setInspectorName] = useState(
+    currentUser ? `${currentUser.name}, ${currentUser.designation}` : 'P. K. Verma, Senior Inspector'
+  );
+  const [inspectorLocation, setInspectorLocation] = useState(
+    currentUser ? currentUser.zone : 'Enforcement Directorate, Delhi Zone'
+  );
   const [batchNumber, setBatchNumber] = useState('');
   const [retailerName, setRetailerName] = useState('');
 
