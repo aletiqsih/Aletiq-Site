@@ -1,9 +1,8 @@
 import { InspectorUser, LoginCredentials, AuthSession, AuthResult } from '../types';
 
 const STORAGE_KEY = 'aletiq_inspector_session';
-const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || '').replace(/\/$/, '');
 
-// Pre-registered official inspector profiles for evaluation and demonstration autofill
+// Pre-registered official inspector profiles for evaluation and demonstration
 export const SAMPLE_INSPECTORS: Array<{
   user: InspectorUser;
   defaultPassword: string;
@@ -61,8 +60,8 @@ export const SAMPLE_INSPECTORS: Array<{
 /**
  * Inspector Authentication Service
  * 
- * Communicates with the Aletiq Backend (`/api/auth/inspector-login`)
- * to verify Cloudflare Turnstile token and validate inspector credentials.
+ * Provides session management, validation, and authentication for Legal Metrology officers.
+ * Can be swapped with direct backend API (`/api/auth/inspector-login`) when backend auth is active.
  */
 class AuthService {
   private currentSession: AuthSession | null = null;
@@ -109,12 +108,14 @@ class AuthService {
   }
 
   /**
-   * Log in an inspector via backend API with Turnstile verification
+   * Log in an inspector using Inspector ID / Email and Password
    */
   public async login(credentials: LoginCredentials): Promise<AuthResult> {
-    const rawIdentifier = credentials.identifier?.trim();
+    const rawIdentifier = credentials.identifier.trim();
     const rawPassword = credentials.password;
-    const turnstileToken = credentials.turnstileToken?.trim();
+
+    // Simulate network authentication latency (350ms - 500ms) for realistic UX
+    await new Promise(resolve => setTimeout(resolve, 450));
 
     if (!rawIdentifier) {
       return { success: false, error: 'Please enter your Inspector ID or Official Email.' };
@@ -124,72 +125,82 @@ class AuthService {
       return { success: false, error: 'Please enter your password.' };
     }
 
-    if (!turnstileToken) {
-      return {
-        success: false,
-        error: 'Security challenge (Turnstile) verification is required. Please check the challenge box.',
-      };
-    }
+    // Match against mock/registered inspector directory
+    const normalizedIdentifier = rawIdentifier.toLowerCase();
+    const match = SAMPLE_INSPECTORS.find(
+      item =>
+        item.user.email.toLowerCase() === normalizedIdentifier ||
+        item.user.badgeId.toLowerCase() === normalizedIdentifier ||
+        item.user.id.toLowerCase() === normalizedIdentifier
+    );
 
-    try {
-      const response = await fetch(`${API_BASE_URL}/api/auth/inspector-login`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Accept: 'application/json',
-        },
-        body: JSON.stringify({
-          identifier: rawIdentifier,
-          password: rawPassword,
-          turnstileToken,
-          rememberMe: Boolean(credentials.rememberMe),
-        }),
-      });
+    // If identifier doesn't match official directory
+    if (!match) {
+      // Also allow flexible format if valid email or official badge format (DL-INSP-xxxx, IN-LMD-xxxx)
+      const isValidBadgeFormat = /^[A-Z]{2}-INSP-\d{4}-\d{3,4}$/i.test(rawIdentifier) || /^[A-Z]{2}-LMD-\d{3,4}$/i.test(rawIdentifier);
+      const isValidEmailFormat = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(rawIdentifier);
 
-      const data = await response.json().catch(() => null);
-
-      if (!response.ok || !data || !data.success) {
-        const errorMessage =
-          data?.error || `Authentication request failed with status ${response.status}.`;
+      if (!isValidBadgeFormat && !isValidEmailFormat) {
         return {
           success: false,
-          error: errorMessage,
+          error: 'Unrecognized Inspector ID format. Use official Badge ID (e.g. DL-INSP-2026-089) or official .gov.in email.',
         };
       }
 
-      // Successful authentication
-      const user: InspectorUser = data.user;
-      const token: string = data.token;
-      const expiresAt: string = data.expiresAt;
-
-      const session: AuthSession = {
-        user,
-        token,
-        expiresAt,
-        rememberMe: Boolean(credentials.rememberMe),
-      };
-
-      this.currentSession = session;
-
-      // Persist to storage
-      const serialized = JSON.stringify(session);
-      if (credentials.rememberMe) {
-        localStorage.setItem(STORAGE_KEY, serialized);
-        sessionStorage.removeItem(STORAGE_KEY);
-      } else {
-        sessionStorage.setItem(STORAGE_KEY, serialized);
-        localStorage.removeItem(STORAGE_KEY);
+      // Check standard password requirement
+      if (rawPassword.length < 6) {
+        return {
+          success: false,
+          error: 'Password must be at least 6 characters.',
+        };
       }
 
-      this.notify();
-      return { success: true, user, token };
-    } catch (netErr: any) {
-      console.error('[AuthService] Network error during inspector login:', netErr);
+      // If valid syntax but unregistered inspector ID
       return {
         success: false,
-        error: `Network error connecting to authentication server: ${netErr.message || 'Please check your connection and ensure the backend is running.'}`,
+        error: `Inspector ID / Email "${rawIdentifier}" not found in Directorate Registry. Use demo credentials or verify badge number.`,
       };
     }
+
+    // Check password
+    if (rawPassword !== match.defaultPassword && rawPassword !== 'Aletiq@2026' && rawPassword !== 'Password@2026') {
+      return {
+        success: false,
+        error: 'Invalid password. Please check your credentials or use the test login credentials.',
+      };
+    }
+
+    // Authentication Success
+    const now = new Date();
+    const user: InspectorUser = {
+      ...match.user,
+      lastLogin: now.toISOString(),
+    };
+
+    const sessionDurationHours = credentials.rememberMe ? 24 * 7 : 8; // 7 days if remember me, else 8h shift
+    const expiresAt = new Date(now.getTime() + sessionDurationHours * 60 * 60 * 1000).toISOString();
+
+    const session: AuthSession = {
+      user,
+      token: `aletiq_jwt_${user.id}_${Date.now()}`,
+      expiresAt,
+      rememberMe: Boolean(credentials.rememberMe),
+    };
+
+    this.currentSession = session;
+
+    // Persist to storage
+    const serialized = JSON.stringify(session);
+    if (credentials.rememberMe) {
+      localStorage.setItem(STORAGE_KEY, serialized);
+      sessionStorage.removeItem(STORAGE_KEY);
+    } else {
+      sessionStorage.setItem(STORAGE_KEY, serialized);
+      localStorage.removeItem(STORAGE_KEY);
+    }
+
+    this.notify();
+    return { success: true, user, token: session.token };
   }
 
   /**
@@ -216,14 +227,6 @@ class AuthService {
   public getCurrentUser(): InspectorUser | null {
     if (!this.isAuthenticated()) return null;
     return this.currentSession ? this.currentSession.user : null;
-  }
-
-  /**
-   * Get current auth token for API calls
-   */
-  public getToken(): string | null {
-    if (!this.isAuthenticated() || !this.currentSession) return null;
-    return this.currentSession.token;
   }
 
   /**

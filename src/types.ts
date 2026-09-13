@@ -310,7 +310,6 @@ export interface LoginCredentials {
   identifier: string; // Email or Inspector Badge ID
   password: string;
   rememberMe?: boolean;
-  turnstileToken?: string;
 }
 
 export interface AuthSession {
