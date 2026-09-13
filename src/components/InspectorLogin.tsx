@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   ShieldCheck,
   Lock,
@@ -26,6 +26,9 @@ interface InspectorLoginProps {
   onReturnToApp: () => void;
 }
 
+const TURNSTILE_SITE_KEY =
+  (import.meta.env.VITE_TURNSTILE_SITE_KEY as string) || '1x00000000000000000000AA';
+
 export const InspectorLogin: React.FC<InspectorLoginProps> = ({
   onLoginSuccess,
   onReturnToApp,
@@ -35,15 +38,101 @@ export const InspectorLogin: React.FC<InspectorLoginProps> = ({
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(true);
 
+  // Turnstile CAPTCHA state
+  const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
+  const [turnstileReady, setTurnstileReady] = useState(false);
+  const turnstileContainerRef = useRef<HTMLDivElement>(null);
+  const widgetIdRef = useRef<string | null>(null);
+
   // Form Validation & Submission State
-  const [errors, setErrors] = useState<{ identifier?: string; password?: string; general?: string }>({});
+  const [errors, setErrors] = useState<{
+    identifier?: string;
+    password?: string;
+    turnstile?: string;
+    general?: string;
+  }>({});
   const [isLoading, setIsLoading] = useState(false);
   const [showForgotModal, setShowForgotModal] = useState(false);
   const [forgotEmail, setForgotEmail] = useState('');
   const [forgotSent, setForgotSent] = useState(false);
 
+  // Initialize Cloudflare Turnstile widget
+  useEffect(() => {
+    let isMounted = true;
+
+    const renderWidget = () => {
+      if (!isMounted || !turnstileContainerRef.current || !window.turnstile) return;
+      if (widgetIdRef.current) return; // already rendered
+
+      try {
+        const id = window.turnstile.render(turnstileContainerRef.current, {
+          sitekey: TURNSTILE_SITE_KEY,
+          theme: 'light',
+          callback: (token: string) => {
+            if (!isMounted) return;
+            setTurnstileToken(token);
+            setTurnstileReady(true);
+            setErrors(prev => ({ ...prev, turnstile: undefined, general: undefined }));
+          },
+          'expired-callback': () => {
+            if (!isMounted) return;
+            setTurnstileToken(null);
+          },
+          'error-callback': () => {
+            if (!isMounted) return;
+            setTurnstileToken(null);
+          },
+        });
+        widgetIdRef.current = id;
+        setTurnstileReady(true);
+      } catch (e) {
+        console.warn('Turnstile render warning:', e);
+      }
+    };
+
+    if (window.turnstile) {
+      renderWidget();
+    } else {
+      // Check if script is already present in document
+      const existingScript = document.querySelector('script[src*="turnstile"]');
+      if (!existingScript) {
+        const script = document.createElement('script');
+        script.src = 'https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit';
+        script.async = true;
+        script.defer = true;
+        script.onload = () => {
+          if (isMounted) {
+            renderWidget();
+          }
+        };
+        document.head.appendChild(script);
+      } else {
+        existingScript.addEventListener('load', () => {
+          if (isMounted) {
+            renderWidget();
+          }
+        });
+      }
+    }
+
+    return () => {
+      isMounted = false;
+      if (widgetIdRef.current && window.turnstile) {
+        try {
+          window.turnstile.remove(widgetIdRef.current);
+        } catch {}
+        widgetIdRef.current = null;
+      }
+    };
+  }, []);
+
   const validate = (): boolean => {
-    const newErrors: { identifier?: string; password?: string; general?: string } = {};
+    const newErrors: {
+      identifier?: string;
+      password?: string;
+      turnstile?: string;
+      general?: string;
+    } = {};
 
     if (!identifier.trim()) {
       newErrors.identifier = 'Inspector ID or official email is required.';
@@ -53,6 +142,10 @@ export const InspectorLogin: React.FC<InspectorLoginProps> = ({
       newErrors.password = 'Password is required.';
     } else if (password.length < 6) {
       newErrors.password = 'Password must be at least 6 characters.';
+    }
+
+    if (!turnstileToken) {
+      newErrors.turnstile = 'Please complete the security challenge (CAPTCHA).';
     }
 
     setErrors(newErrors);
@@ -74,17 +167,27 @@ export const InspectorLogin: React.FC<InspectorLoginProps> = ({
         identifier: identifier.trim(),
         password,
         rememberMe,
+        turnstileToken: turnstileToken || undefined,
       });
 
       if (result.success && result.user) {
         onLoginSuccess(result.user);
       } else {
         setErrors({ general: result.error || 'Authentication failed. Please verify credentials.' });
+        // Reset turnstile challenge on authentication failure
+        if (window.turnstile && widgetIdRef.current) {
+          window.turnstile.reset(widgetIdRef.current);
+          setTurnstileToken(null);
+        }
       }
     } catch (err: any) {
       setErrors({
         general: err.message || 'An unexpected error occurred during authentication.',
       });
+      if (window.turnstile && widgetIdRef.current) {
+        window.turnstile.reset(widgetIdRef.current);
+        setTurnstileToken(null);
+      }
     } finally {
       setIsLoading(false);
     }
@@ -95,7 +198,7 @@ export const InspectorLogin: React.FC<InspectorLoginProps> = ({
     if (sample) {
       setIdentifier(sample.user.badgeId);
       setPassword(sample.defaultPassword);
-      setErrors({});
+      setErrors(prev => ({ ...prev, identifier: undefined, password: undefined }));
     }
   };
 
@@ -384,12 +487,40 @@ export const InspectorLogin: React.FC<InspectorLoginProps> = ({
                   </span>
                 </div>
 
+                {/* Cloudflare Turnstile Security Verification */}
+                <div className="pt-2">
+                  <div className="flex items-center justify-between mb-1.5">
+                    <label className="block text-xs font-semibold text-slate-700">
+                      Security Verification <span className="text-rose-500">*</span>
+                    </label>
+                    <span className="text-[10px] text-slate-400 font-medium">Cloudflare Turnstile</span>
+                  </div>
+                  
+                  <div className="min-h-[66px] flex flex-col items-center justify-center p-2 rounded-lg bg-slate-50 border border-slate-200">
+                    <div ref={turnstileContainerRef} id="turnstile-container" className="my-0.5" />
+                    {!turnstileReady && !turnstileToken && (
+                      <div className="text-[11px] text-slate-400 flex items-center space-x-1.5 py-1">
+                        <Loader2 className="w-3.5 h-3.5 animate-spin text-emerald-600" />
+                        <span>Initializing security challenge...</span>
+                      </div>
+                    )}
+                  </div>
+
+                  {errors.turnstile && (
+                    <p className="text-[11px] text-rose-600 font-medium mt-1 flex items-center space-x-1">
+                      <AlertCircle className="w-3 h-3 shrink-0" />
+                      <span>{errors.turnstile}</span>
+                    </p>
+                  )}
+                </div>
+
                 {/* Submit Button */}
                 <div className="pt-2">
                   <button
                     type="submit"
-                    disabled={isLoading}
-                    className="w-full inline-flex items-center justify-center space-x-2 bg-emerald-600 hover:bg-emerald-500 disabled:bg-slate-300 text-white font-semibold text-xs sm:text-sm py-2.5 px-4 rounded-lg shadow-sm transition-colors cursor-pointer disabled:cursor-not-allowed"
+                    disabled={isLoading || !turnstileToken}
+                    title={!turnstileToken ? 'Please complete the CAPTCHA verification above to continue' : 'Sign in'}
+                    className="w-full inline-flex items-center justify-center space-x-2 bg-emerald-600 hover:bg-emerald-500 disabled:bg-slate-300 disabled:text-slate-500 text-white font-semibold text-xs sm:text-sm py-2.5 px-4 rounded-lg shadow-sm transition-colors cursor-pointer disabled:cursor-not-allowed"
                   >
                     {isLoading ? (
                       <>
@@ -403,6 +534,11 @@ export const InspectorLogin: React.FC<InspectorLoginProps> = ({
                       </>
                     )}
                   </button>
+                  {!turnstileToken && !isLoading && (
+                    <p className="text-[10px] text-slate-400 text-center mt-1.5">
+                      Complete the security check above to enable sign-in
+                    </p>
+                  )}
                 </div>
               </form>
             </div>

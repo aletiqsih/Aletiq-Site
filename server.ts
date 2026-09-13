@@ -12,6 +12,7 @@ import { comparePackageWithDigitalListing } from './server/services/comparisonSe
 import { generateImprovementNoticeDraft } from './server/services/noticeService';
 import { analyzeProductUrlService, getSampleMockProductHtml } from './server/services/ecommerceExtractor';
 import { Inspection, InspectionImage } from './src/types';
+import { authRouter } from './server/routes/authRoutes';
 
 async function startServer() {
   const app = express();
@@ -35,6 +36,9 @@ async function startServer() {
   // ==========================================
   // API ROUTES
   // ==========================================
+
+  // Authentication & Inspector Login (Turnstile CAPTCHA + JWT)
+  app.use('/api/auth', authRouter);
 
   // 1. Health Check
   app.get('/api/health', (req, res) => {
