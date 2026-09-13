@@ -19,47 +19,60 @@ function getGeminiClient(): GoogleGenAI | null {
 export async function extractPackageDeclarationsWithGemini(
   images: InspectionImage[]
 ): Promise<ExtractedDeclarations> {
-  const ai = getGeminiClient();
-
-  if (!ai || images.length === 0) {
-    return fallbackExtraction(images);
+  if (!images || images.length === 0) {
+    throw new Error('No package images provided for compliance analysis.');
   }
 
-  try {
-    const parts: Array<{ inlineData?: { mimeType: string; data: string }; text?: string }> = [];
+  const ai = getGeminiClient();
+  if (!ai) {
+    throw new Error(
+      'GEMINI_API_KEY is not configured. Please add a valid GEMINI_API_KEY in your .env file to enable AI OCR extraction on uploaded packages.'
+    );
+  }
 
-    // Add image parts
-    for (let i = 0; i < images.length; i++) {
-      const img = images[i];
-      let base64Data = '';
-      let mimeType = img.mimeType || 'image/jpeg';
+  const parts: Array<{ inlineData?: { mimeType: string; data: string }; text?: string }> = [];
 
-      if (img.url.startsWith('data:')) {
-        const matches = img.url.match(/^data:(image\/[a-zA-Z+]+);base64,(.+)$/);
-        if (matches) {
-          mimeType = matches[1];
-          base64Data = matches[2];
-        }
+  // Add image parts
+  for (let i = 0; i < images.length; i++) {
+    const img = images[i];
+    let base64Data = '';
+    let mimeType = img.mimeType || 'image/jpeg';
+
+    if (img.url && img.url.startsWith('data:')) {
+      const matches = img.url.match(/^data:([^;]+);base64,(.+)$/);
+      if (matches) {
+        mimeType = matches[1];
+        base64Data = matches[2];
       }
-
-      if (base64Data) {
-        parts.push({
-          inlineData: {
-            mimeType,
-            data: base64Data,
-          },
-        });
-        parts.push({
-          text: `[Image ${i + 1} - ID: "${img.id}", Side: "${img.side}"]`,
-        });
+    } else if (img.url && (img.url.startsWith('http://') || img.url.startsWith('https://'))) {
+      try {
+        const res = await fetch(img.url);
+        const arrayBuffer = await res.arrayBuffer();
+        base64Data = Buffer.from(arrayBuffer).toString('base64');
+        mimeType = res.headers.get('content-type') || mimeType;
+      } catch (err: any) {
+        console.error(`Failed to fetch image from URL: ${img.url}`, err);
       }
     }
 
-    if (parts.length === 0) {
-      return fallbackExtraction(images);
+    if (base64Data) {
+      parts.push({
+        inlineData: {
+          mimeType,
+          data: base64Data,
+        },
+      });
+      parts.push({
+        text: `[Image ${i + 1} - ID: "${img.id}", Side: "${img.side}"]`,
+      });
     }
+  }
 
-    const systemPrompt = `You are a specialized Legal Metrology OCR and text extraction system for Indian packaged commodities.
+  if (parts.length === 0) {
+    throw new Error('Could not parse any image data from the provided package images.');
+  }
+
+  const systemPrompt = `You are a specialized Legal Metrology OCR and text extraction system for Indian packaged commodities.
 Your task is to READ AND EXTRACT ONLY visible statutory declarations from the provided package images.
 CRITICAL RULES:
 1. NEVER invent, hallucinate, or guess text. If a declaration is not clearly visible in any submitted image, return null for value and 0 for confidence.
@@ -70,310 +83,326 @@ CRITICAL RULES:
 6. Identify product category (e.g., Food / Edible Oil / Cosmetic / Detergent / Electronics / General Merchandise / Unknown).
 7. Do not make legal decisions or compliance judgments; only extract factual data.`;
 
-    parts.push({
-      text: `Please analyze the ${images.length} package image(s) and extract all visible statutory declarations according to Legal Metrology standards into the requested JSON schema.`,
-    });
+  parts.push({
+    text: `Please analyze the ${images.length} package image(s) and extract all visible statutory declarations according to Legal Metrology standards into the requested JSON schema.`,
+  });
 
-    const response = await ai.models.generateContent({
-      model: 'gemini-3.7-flash',
-      contents: {
-        parts: parts as any,
-      },
-      config: {
-        systemInstruction: systemPrompt,
-        responseMimeType: 'application/json',
-        responseSchema: {
-          type: Type.OBJECT,
-          properties: {
-            product_name: {
-              type: Type.OBJECT,
-              properties: {
-                value: { type: Type.STRING },
-                confidence: { type: Type.NUMBER },
-                sourceImageId: { type: Type.STRING },
-                sourceSide: { type: Type.STRING },
-                evidenceText: { type: Type.STRING },
-              },
-            },
-            brand: {
-              type: Type.OBJECT,
-              properties: {
-                value: { type: Type.STRING },
-                confidence: { type: Type.NUMBER },
-                sourceImageId: { type: Type.STRING },
-                sourceSide: { type: Type.STRING },
-                evidenceText: { type: Type.STRING },
-              },
-            },
-            product_category: {
-              type: Type.OBJECT,
-              properties: {
-                value: { type: Type.STRING },
-                confidence: { type: Type.NUMBER },
-                sourceImageId: { type: Type.STRING },
-                sourceSide: { type: Type.STRING },
-              },
-            },
-            generic_or_common_name: {
-              type: Type.OBJECT,
-              properties: {
-                value: { type: Type.STRING },
-                confidence: { type: Type.NUMBER },
-                sourceImageId: { type: Type.STRING },
-                sourceSide: { type: Type.STRING },
-                evidenceText: { type: Type.STRING },
-              },
-            },
-            manufacturer_name: {
-              type: Type.OBJECT,
-              properties: {
-                value: { type: Type.STRING },
-                confidence: { type: Type.NUMBER },
-                sourceImageId: { type: Type.STRING },
-                sourceSide: { type: Type.STRING },
-                evidenceText: { type: Type.STRING },
-              },
-            },
-            manufacturer_address: {
-              type: Type.OBJECT,
-              properties: {
-                value: { type: Type.STRING },
-                confidence: { type: Type.NUMBER },
-                sourceImageId: { type: Type.STRING },
-                sourceSide: { type: Type.STRING },
-                evidenceText: { type: Type.STRING },
-              },
-            },
-            packer_name: {
-              type: Type.OBJECT,
-              properties: {
-                value: { type: Type.STRING },
-                confidence: { type: Type.NUMBER },
-                sourceImageId: { type: Type.STRING },
-                sourceSide: { type: Type.STRING },
-                evidenceText: { type: Type.STRING },
-              },
-            },
-            packer_address: {
-              type: Type.OBJECT,
-              properties: {
-                value: { type: Type.STRING },
-                confidence: { type: Type.NUMBER },
-                sourceImageId: { type: Type.STRING },
-                sourceSide: { type: Type.STRING },
-                evidenceText: { type: Type.STRING },
-              },
-            },
-            importer_name: {
-              type: Type.OBJECT,
-              properties: {
-                value: { type: Type.STRING },
-                confidence: { type: Type.NUMBER },
-                sourceImageId: { type: Type.STRING },
-                sourceSide: { type: Type.STRING },
-                evidenceText: { type: Type.STRING },
-              },
-            },
-            importer_address: {
-              type: Type.OBJECT,
-              properties: {
-                value: { type: Type.STRING },
-                confidence: { type: Type.NUMBER },
-                sourceImageId: { type: Type.STRING },
-                sourceSide: { type: Type.STRING },
-                evidenceText: { type: Type.STRING },
-              },
-            },
-            net_quantity: {
-              type: Type.OBJECT,
-              properties: {
-                value: { type: Type.STRING },
-                confidence: { type: Type.NUMBER },
-                sourceImageId: { type: Type.STRING },
-                sourceSide: { type: Type.STRING },
-                evidenceText: { type: Type.STRING },
-              },
-            },
-            quantity_value: {
-              type: Type.OBJECT,
-              properties: {
-                value: { type: Type.NUMBER },
-                confidence: { type: Type.NUMBER },
-              },
-            },
-            quantity_unit: {
-              type: Type.OBJECT,
-              properties: {
-                value: { type: Type.STRING },
-                confidence: { type: Type.NUMBER },
-              },
-            },
-            unit_sale_price: {
-              type: Type.OBJECT,
-              properties: {
-                value: { type: Type.STRING },
-                confidence: { type: Type.NUMBER },
-                sourceImageId: { type: Type.STRING },
-                sourceSide: { type: Type.STRING },
-                evidenceText: { type: Type.STRING },
-              },
-            },
-            mrp: {
-              type: Type.OBJECT,
-              properties: {
-                value: { type: Type.STRING },
-                confidence: { type: Type.NUMBER },
-                sourceImageId: { type: Type.STRING },
-                sourceSide: { type: Type.STRING },
-                evidenceText: { type: Type.STRING },
-              },
-            },
-            currency: {
-              type: Type.OBJECT,
-              properties: {
-                value: { type: Type.STRING },
-                confidence: { type: Type.NUMBER },
-              },
-            },
-            manufacturing_date: {
-              type: Type.OBJECT,
-              properties: {
-                value: { type: Type.STRING },
-                confidence: { type: Type.NUMBER },
-                sourceImageId: { type: Type.STRING },
-                sourceSide: { type: Type.STRING },
-                evidenceText: { type: Type.STRING },
-              },
-            },
-            packing_date: {
-              type: Type.OBJECT,
-              properties: {
-                value: { type: Type.STRING },
-                confidence: { type: Type.NUMBER },
-                sourceImageId: { type: Type.STRING },
-                sourceSide: { type: Type.STRING },
-                evidenceText: { type: Type.STRING },
-              },
-            },
-            import_date: {
-              type: Type.OBJECT,
-              properties: {
-                value: { type: Type.STRING },
-                confidence: { type: Type.NUMBER },
-                sourceImageId: { type: Type.STRING },
-                sourceSide: { type: Type.STRING },
-                evidenceText: { type: Type.STRING },
-              },
-            },
-            expiry_date: {
-              type: Type.OBJECT,
-              properties: {
-                value: { type: Type.STRING },
-                confidence: { type: Type.NUMBER },
-                sourceImageId: { type: Type.STRING },
-                sourceSide: { type: Type.STRING },
-                evidenceText: { type: Type.STRING },
-              },
-            },
-            best_before: {
-              type: Type.OBJECT,
-              properties: {
-                value: { type: Type.STRING },
-                confidence: { type: Type.NUMBER },
-                sourceImageId: { type: Type.STRING },
-                sourceSide: { type: Type.STRING },
-                evidenceText: { type: Type.STRING },
-              },
-            },
-            consumer_care_name: {
-              type: Type.OBJECT,
-              properties: {
-                value: { type: Type.STRING },
-                confidence: { type: Type.NUMBER },
-                sourceImageId: { type: Type.STRING },
-                sourceSide: { type: Type.STRING },
-                evidenceText: { type: Type.STRING },
-              },
-            },
-            consumer_care_address: {
-              type: Type.OBJECT,
-              properties: {
-                value: { type: Type.STRING },
-                confidence: { type: Type.NUMBER },
-                sourceImageId: { type: Type.STRING },
-                sourceSide: { type: Type.STRING },
-                evidenceText: { type: Type.STRING },
-              },
-            },
-            consumer_care_phone: {
-              type: Type.OBJECT,
-              properties: {
-                value: { type: Type.STRING },
-                confidence: { type: Type.NUMBER },
-                sourceImageId: { type: Type.STRING },
-                sourceSide: { type: Type.STRING },
-                evidenceText: { type: Type.STRING },
-              },
-            },
-            consumer_care_email: {
-              type: Type.OBJECT,
-              properties: {
-                value: { type: Type.STRING },
-                confidence: { type: Type.NUMBER },
-                sourceImageId: { type: Type.STRING },
-                sourceSide: { type: Type.STRING },
-                evidenceText: { type: Type.STRING },
-              },
-            },
-            country_of_origin: {
-              type: Type.OBJECT,
-              properties: {
-                value: { type: Type.STRING },
-                confidence: { type: Type.NUMBER },
-                sourceImageId: { type: Type.STRING },
-                sourceSide: { type: Type.STRING },
-                evidenceText: { type: Type.STRING },
-              },
-            },
-            is_imported: {
-              type: Type.OBJECT,
-              properties: {
-                value: { type: Type.BOOLEAN },
-                confidence: { type: Type.NUMBER },
-              },
-            },
-            visible_declarations: {
-              type: Type.ARRAY,
-              items: { type: Type.STRING },
-            },
-            unreadable_declarations: {
-              type: Type.ARRAY,
-              items: { type: Type.STRING },
-            },
-            possible_missing_declarations: {
-              type: Type.ARRAY,
-              items: { type: Type.STRING },
-            },
-            overall_extraction_confidence: { type: Type.NUMBER },
-          },
+  const responseSchema = {
+    type: Type.OBJECT,
+    properties: {
+      product_name: {
+        type: Type.OBJECT,
+        properties: {
+          value: { type: Type.STRING },
+          confidence: { type: Type.NUMBER },
+          sourceImageId: { type: Type.STRING },
+          sourceSide: { type: Type.STRING },
+          evidenceText: { type: Type.STRING },
         },
       },
-    });
+      brand: {
+        type: Type.OBJECT,
+        properties: {
+          value: { type: Type.STRING },
+          confidence: { type: Type.NUMBER },
+          sourceImageId: { type: Type.STRING },
+          sourceSide: { type: Type.STRING },
+          evidenceText: { type: Type.STRING },
+        },
+      },
+      product_category: {
+        type: Type.OBJECT,
+        properties: {
+          value: { type: Type.STRING },
+          confidence: { type: Type.NUMBER },
+          sourceImageId: { type: Type.STRING },
+          sourceSide: { type: Type.STRING },
+        },
+      },
+      generic_or_common_name: {
+        type: Type.OBJECT,
+        properties: {
+          value: { type: Type.STRING },
+          confidence: { type: Type.NUMBER },
+          sourceImageId: { type: Type.STRING },
+          sourceSide: { type: Type.STRING },
+          evidenceText: { type: Type.STRING },
+        },
+      },
+      manufacturer_name: {
+        type: Type.OBJECT,
+        properties: {
+          value: { type: Type.STRING },
+          confidence: { type: Type.NUMBER },
+          sourceImageId: { type: Type.STRING },
+          sourceSide: { type: Type.STRING },
+          evidenceText: { type: Type.STRING },
+        },
+      },
+      manufacturer_address: {
+        type: Type.OBJECT,
+        properties: {
+          value: { type: Type.STRING },
+          confidence: { type: Type.NUMBER },
+          sourceImageId: { type: Type.STRING },
+          sourceSide: { type: Type.STRING },
+          evidenceText: { type: Type.STRING },
+        },
+      },
+      packer_name: {
+        type: Type.OBJECT,
+        properties: {
+          value: { type: Type.STRING },
+          confidence: { type: Type.NUMBER },
+          sourceImageId: { type: Type.STRING },
+          sourceSide: { type: Type.STRING },
+          evidenceText: { type: Type.STRING },
+        },
+      },
+      packer_address: {
+        type: Type.OBJECT,
+        properties: {
+          value: { type: Type.STRING },
+          confidence: { type: Type.NUMBER },
+          sourceImageId: { type: Type.STRING },
+          sourceSide: { type: Type.STRING },
+          evidenceText: { type: Type.STRING },
+        },
+      },
+      importer_name: {
+        type: Type.OBJECT,
+        properties: {
+          value: { type: Type.STRING },
+          confidence: { type: Type.NUMBER },
+          sourceImageId: { type: Type.STRING },
+          sourceSide: { type: Type.STRING },
+          evidenceText: { type: Type.STRING },
+        },
+      },
+      importer_address: {
+        type: Type.OBJECT,
+        properties: {
+          value: { type: Type.STRING },
+          confidence: { type: Type.NUMBER },
+          sourceImageId: { type: Type.STRING },
+          sourceSide: { type: Type.STRING },
+          evidenceText: { type: Type.STRING },
+        },
+      },
+      net_quantity: {
+        type: Type.OBJECT,
+        properties: {
+          value: { type: Type.STRING },
+          confidence: { type: Type.NUMBER },
+          sourceImageId: { type: Type.STRING },
+          sourceSide: { type: Type.STRING },
+          evidenceText: { type: Type.STRING },
+        },
+      },
+      quantity_value: {
+        type: Type.OBJECT,
+        properties: {
+          value: { type: Type.NUMBER },
+          confidence: { type: Type.NUMBER },
+        },
+      },
+      quantity_unit: {
+        type: Type.OBJECT,
+        properties: {
+          value: { type: Type.STRING },
+          confidence: { type: Type.NUMBER },
+        },
+      },
+      unit_sale_price: {
+        type: Type.OBJECT,
+        properties: {
+          value: { type: Type.STRING },
+          confidence: { type: Type.NUMBER },
+          sourceImageId: { type: Type.STRING },
+          sourceSide: { type: Type.STRING },
+          evidenceText: { type: Type.STRING },
+        },
+      },
+      mrp: {
+        type: Type.OBJECT,
+        properties: {
+          value: { type: Type.STRING },
+          confidence: { type: Type.NUMBER },
+          sourceImageId: { type: Type.STRING },
+          sourceSide: { type: Type.STRING },
+          evidenceText: { type: Type.STRING },
+        },
+      },
+      currency: {
+        type: Type.OBJECT,
+        properties: {
+          value: { type: Type.STRING },
+          confidence: { type: Type.NUMBER },
+        },
+      },
+      manufacturing_date: {
+        type: Type.OBJECT,
+        properties: {
+          value: { type: Type.STRING },
+          confidence: { type: Type.NUMBER },
+          sourceImageId: { type: Type.STRING },
+          sourceSide: { type: Type.STRING },
+          evidenceText: { type: Type.STRING },
+        },
+      },
+      packing_date: {
+        type: Type.OBJECT,
+        properties: {
+          value: { type: Type.STRING },
+          confidence: { type: Type.NUMBER },
+          sourceImageId: { type: Type.STRING },
+          sourceSide: { type: Type.STRING },
+          evidenceText: { type: Type.STRING },
+        },
+      },
+      import_date: {
+        type: Type.OBJECT,
+        properties: {
+          value: { type: Type.STRING },
+          confidence: { type: Type.NUMBER },
+          sourceImageId: { type: Type.STRING },
+          sourceSide: { type: Type.STRING },
+          evidenceText: { type: Type.STRING },
+        },
+      },
+      expiry_date: {
+        type: Type.OBJECT,
+        properties: {
+          value: { type: Type.STRING },
+          confidence: { type: Type.NUMBER },
+          sourceImageId: { type: Type.STRING },
+          sourceSide: { type: Type.STRING },
+          evidenceText: { type: Type.STRING },
+        },
+      },
+      best_before: {
+        type: Type.OBJECT,
+        properties: {
+          value: { type: Type.STRING },
+          confidence: { type: Type.NUMBER },
+          sourceImageId: { type: Type.STRING },
+          sourceSide: { type: Type.STRING },
+          evidenceText: { type: Type.STRING },
+        },
+      },
+      consumer_care_name: {
+        type: Type.OBJECT,
+        properties: {
+          value: { type: Type.STRING },
+          confidence: { type: Type.NUMBER },
+          sourceImageId: { type: Type.STRING },
+          sourceSide: { type: Type.STRING },
+          evidenceText: { type: Type.STRING },
+        },
+      },
+      consumer_care_address: {
+        type: Type.OBJECT,
+        properties: {
+          value: { type: Type.STRING },
+          confidence: { type: Type.NUMBER },
+          sourceImageId: { type: Type.STRING },
+          sourceSide: { type: Type.STRING },
+          evidenceText: { type: Type.STRING },
+        },
+      },
+      consumer_care_phone: {
+        type: Type.OBJECT,
+        properties: {
+          value: { type: Type.STRING },
+          confidence: { type: Type.NUMBER },
+          sourceImageId: { type: Type.STRING },
+          sourceSide: { type: Type.STRING },
+          evidenceText: { type: Type.STRING },
+        },
+      },
+      consumer_care_email: {
+        type: Type.OBJECT,
+        properties: {
+          value: { type: Type.STRING },
+          confidence: { type: Type.NUMBER },
+          sourceImageId: { type: Type.STRING },
+          sourceSide: { type: Type.STRING },
+          evidenceText: { type: Type.STRING },
+        },
+      },
+      country_of_origin: {
+        type: Type.OBJECT,
+        properties: {
+          value: { type: Type.STRING },
+          confidence: { type: Type.NUMBER },
+          sourceImageId: { type: Type.STRING },
+          sourceSide: { type: Type.STRING },
+          evidenceText: { type: Type.STRING },
+        },
+      },
+      is_imported: {
+        type: Type.OBJECT,
+        properties: {
+          value: { type: Type.BOOLEAN },
+          confidence: { type: Type.NUMBER },
+        },
+      },
+      visible_declarations: {
+        type: Type.ARRAY,
+        items: { type: Type.STRING },
+      },
+      unreadable_declarations: {
+        type: Type.ARRAY,
+        items: { type: Type.STRING },
+      },
+      possible_missing_declarations: {
+        type: Type.ARRAY,
+        items: { type: Type.STRING },
+      },
+      overall_extraction_confidence: { type: Type.NUMBER },
+    },
+  };
 
-    const rawText = response.text?.trim() || '{}';
+  const candidateModels = ['gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-1.5-flash', 'gemini-3.7-flash'];
+  let response: any = null;
+  let lastError: any = null;
 
-console.log('GEMINI RAW RESPONSE:', rawText);
+  for (const model of candidateModels) {
+    try {
+      response = await ai.models.generateContent({
+        model,
+        contents: {
+          parts: parts as any,
+        },
+        config: {
+          systemInstruction: systemPrompt,
+          responseMimeType: 'application/json',
+          responseSchema: responseSchema as any,
+        },
+      });
+      if (response && response.text) {
+        break;
+      }
+    } catch (modelErr: any) {
+      lastError = modelErr;
+      console.warn(`Gemini extraction attempt with model "${model}" failed:`, modelErr.message || modelErr);
+    }
+  }
 
-try {
-  const parsed = JSON.parse(rawText);
-  return normalizeParsedDeclarations(parsed, images);
-} catch (error) {
-  console.error('Invalid Gemini JSON:', rawText);
-  throw new Error(`Gemini returned invalid JSON: ${rawText}`);
-}
+  if (!response || !response.text) {
+    throw new Error(
+      `Gemini extraction failed across candidate models: ${lastError?.message || 'No response returned from Gemini API'}`
+    );
+  }
+
+  const rawText = response.text?.trim() || '{}';
+
+  try {
+    const parsed = JSON.parse(rawText);
+    return normalizeParsedDeclarations(parsed, images);
   } catch (error) {
-    console.error('Gemini extraction error:', error);
-    return fallbackExtraction(images);
+    console.error('Invalid Gemini JSON output:', rawText);
+    throw new Error(`Gemini returned invalid JSON structure: ${rawText.slice(0, 200)}`);
   }
 }
 
@@ -444,201 +473,5 @@ function normalizeParsedDeclarations(parsed: any, images: InspectionImage[]): Ex
     unreadable_declarations: Array.isArray(parsed.unreadable_declarations) ? parsed.unreadable_declarations : [],
     possible_missing_declarations: Array.isArray(parsed.possible_missing_declarations) ? parsed.possible_missing_declarations : [],
     overall_extraction_confidence: typeof parsed.overall_extraction_confidence === 'number' ? parsed.overall_extraction_confidence : 0.88,
-  };
-}
-
-/**
- * Intelligent deterministic fallback extraction if AI key is unavailable or sample test data is processed.
- */
-function fallbackExtraction(images: InspectionImage[]): ExtractedDeclarations {
-  const defaultImage = images[0] || { id: 'img_1', side: 'front' };
-  const backImage = images.find(img => img.side === 'back') || defaultImage;
-  const isMulti = images.length > 1;
-
-  return {
-    product_name: {
-      value: 'Premium Whole Grain Oats',
-      confidence: 0.92,
-      sourceImageId: defaultImage.id,
-      sourceSide: 'front',
-      evidenceText: 'Organic Harvest Premium Whole Grain Rolled Oats 100% Natural',
-      status: 'found',
-    },
-    brand: {
-      value: 'Organic Harvest',
-      confidence: 0.95,
-      sourceImageId: defaultImage.id,
-      sourceSide: 'front',
-      evidenceText: 'Organic Harvest',
-      status: 'found',
-    },
-    product_category: {
-      value: 'Food & Breakfast Cereals',
-      confidence: 0.9,
-      sourceImageId: defaultImage.id,
-      sourceSide: 'front',
-      status: 'found',
-    },
-    generic_or_common_name: {
-      value: 'Rolled Oats (Breakfast Cereal)',
-      confidence: 0.88,
-      sourceImageId: defaultImage.id,
-      sourceSide: 'front',
-      evidenceText: 'Commodity: Rolled Oats',
-      status: 'found',
-    },
-    manufacturer_name: {
-      value: isMulti ? 'NutriGrains Foods India Pvt. Ltd.' : null,
-      confidence: isMulti ? 0.92 : 0,
-      sourceImageId: backImage.id,
-      sourceSide: 'back',
-      evidenceText: isMulti ? 'Manufactured by: NutriGrains Foods India Pvt. Ltd.' : undefined,
-      status: isMulti ? 'found' : 'not_found',
-    },
-    manufacturer_address: {
-      value: isMulti ? 'Plot No. 42, Sector 8, Industrial Area, Manesar, Gurugram, Haryana - 122051' : null,
-      confidence: isMulti ? 0.89 : 0,
-      sourceImageId: backImage.id,
-      sourceSide: 'back',
-      evidenceText: isMulti ? 'Plot No. 42, Sector 8, Industrial Area, Manesar, Gurugram - 122051' : undefined,
-      status: isMulti ? 'found' : 'not_found',
-    },
-    packer_name: {
-      value: isMulti ? 'NutriGrains Foods India Pvt. Ltd.' : null,
-      confidence: isMulti ? 0.9 : 0,
-      sourceImageId: backImage.id,
-      sourceSide: 'back',
-      status: isMulti ? 'found' : 'not_found',
-    },
-    packer_address: {
-      value: isMulti ? 'Plot No. 42, Sector 8, Industrial Area, Manesar, Gurugram, Haryana - 122051' : null,
-      confidence: isMulti ? 0.9 : 0,
-      sourceImageId: backImage.id,
-      sourceSide: 'back',
-      status: isMulti ? 'found' : 'not_found',
-    },
-    importer_name: { value: null, confidence: 0, sourceImageId: '', sourceSide: 'other', status: 'not_found' },
-    importer_address: { value: null, confidence: 0, sourceImageId: '', sourceSide: 'other', status: 'not_found' },
-    net_quantity: {
-      value: '500 g',
-      confidence: 0.96,
-      sourceImageId: defaultImage.id,
-      sourceSide: 'front',
-      evidenceText: 'Net Qty: 500 g',
-      status: 'found',
-    },
-    quantity_value: { value: 500, confidence: 0.96, sourceImageId: defaultImage.id, sourceSide: 'front', status: 'found' },
-    quantity_unit: { value: 'g', confidence: 0.96, sourceImageId: defaultImage.id, sourceSide: 'front', status: 'found' },
-    unit_sale_price: {
-      value: isMulti ? '₹ 0.39 / g' : null,
-      confidence: isMulti ? 0.85 : 0,
-      sourceImageId: backImage.id,
-      sourceSide: 'back',
-      evidenceText: isMulti ? 'Unit Sale Price: ₹ 0.39 / g' : undefined,
-      status: isMulti ? 'found' : 'not_found',
-    },
-    mrp: {
-      value: isMulti ? '₹ 195.00 (inclusive of all taxes)' : null,
-      confidence: isMulti ? 0.95 : 0,
-      sourceImageId: backImage.id,
-      sourceSide: 'back',
-      evidenceText: isMulti ? 'MRP ₹ 195.00 (incl. of all taxes)' : undefined,
-      status: isMulti ? 'found' : 'not_found',
-    },
-    currency: { value: 'INR', confidence: 0.95, sourceImageId: backImage.id, sourceSide: 'back', status: 'found' },
-    manufacturing_date: {
-      value: isMulti ? '05/2026' : null,
-      confidence: isMulti ? 0.9 : 0,
-      sourceImageId: backImage.id,
-      sourceSide: 'back',
-      evidenceText: isMulti ? 'Mfg Date: 05/2026' : undefined,
-      status: isMulti ? 'found' : 'not_found',
-    },
-    packing_date: {
-      value: isMulti ? '05/2026' : null,
-      confidence: isMulti ? 0.9 : 0,
-      sourceImageId: backImage.id,
-      sourceSide: 'back',
-      status: isMulti ? 'found' : 'not_found',
-    },
-    import_date: { value: null, confidence: 0, sourceImageId: '', sourceSide: 'other', status: 'not_found' },
-    expiry_date: {
-      value: isMulti ? '05/2027' : null,
-      confidence: isMulti ? 0.92 : 0,
-      sourceImageId: backImage.id,
-      sourceSide: 'back',
-      evidenceText: isMulti ? 'Best Before 12 Months from Packaging (Exp: 05/2027)' : undefined,
-      status: isMulti ? 'found' : 'not_found',
-    },
-    best_before: {
-      value: isMulti ? '12 Months from Packaging' : null,
-      confidence: isMulti ? 0.9 : 0,
-      sourceImageId: backImage.id,
-      sourceSide: 'back',
-      status: isMulti ? 'found' : 'not_found',
-    },
-    consumer_care_name: {
-      value: isMulti ? 'Consumer Grievance Redressal Officer' : null,
-      confidence: isMulti ? 0.88 : 0,
-      sourceImageId: backImage.id,
-      sourceSide: 'back',
-      status: isMulti ? 'found' : 'not_found',
-    },
-    consumer_care_address: {
-      value: isMulti ? 'Plot No. 42, Sector 8, Industrial Area, Manesar - 122051' : null,
-      confidence: isMulti ? 0.88 : 0,
-      sourceImageId: backImage.id,
-      sourceSide: 'back',
-      status: isMulti ? 'found' : 'not_found',
-    },
-    consumer_care_phone: {
-      value: isMulti ? '1800-123-4567' : null,
-      confidence: isMulti ? 0.94 : 0,
-      sourceImageId: backImage.id,
-      sourceSide: 'back',
-      evidenceText: isMulti ? 'Toll Free: 1800-123-4567' : undefined,
-      status: isMulti ? 'found' : 'not_found',
-    },
-    consumer_care_email: {
-      value: isMulti ? 'care@nutrigrains.co.in' : null,
-      confidence: isMulti ? 0.96 : 0,
-      sourceImageId: backImage.id,
-      sourceSide: 'back',
-      evidenceText: isMulti ? 'Email: care@nutrigrains.co.in' : undefined,
-      status: isMulti ? 'found' : 'not_found',
-    },
-    country_of_origin: {
-      value: 'India',
-      confidence: 0.95,
-      sourceImageId: backImage.id,
-      sourceSide: 'back',
-      evidenceText: 'Country of Origin: India',
-      status: 'found',
-    },
-    is_imported: { value: false, confidence: 0.95, sourceImageId: backImage.id, sourceSide: 'back', status: 'found' },
-    visible_declarations: [
-      'Product Name: Premium Whole Grain Oats',
-      'Generic Name: Rolled Oats',
-      'Net Qty: 500 g',
-      ...(isMulti
-        ? [
-            'MRP: ₹ 195.00 (incl. of all taxes)',
-            'Mfg Date: 05/2026',
-            'Best Before: 12 Months',
-            'Manufacturer: NutriGrains Foods India Pvt. Ltd.',
-            'Address: Manesar, Gurugram, Haryana - 122051',
-            'Consumer Care: 1800-123-4567, care@nutrigrains.co.in',
-            'Country of Origin: India',
-          ]
-        : []),
-    ],
-    unreadable_declarations: [],
-    possible_missing_declarations: !isMulti
-      ? ['Manufacturer / Packer details', 'MRP with tax inclusion', 'Date of Packing', 'Consumer Care phone/email']
-      : [],
-    overall_extraction_confidence: isMulti ? 0.93 : 0.72,
-    raw_notes: isMulti
-      ? 'Extracted complete multi-panel declarations (Front and Back packaging panels).'
-      : 'Front panel only submitted. Back and side declarations could not be extracted.',
   };
 }
