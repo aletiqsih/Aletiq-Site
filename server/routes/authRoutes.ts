@@ -63,10 +63,10 @@ setInterval(() => {
 }, 5 * 60 * 1000);
 
 // ---------------------------------------------------------------------------
-// POST /api/auth/inspector-login
+// POST /api/auth/inspector-login & POST /api/auth/login
 // ---------------------------------------------------------------------------
 
-authRouter.post('/inspector-login', async (req: Request, res: Response) => {
+const handleInspectorLogin = async (req: Request, res: Response) => {
   // Extract client IP
   const clientIp =
     (req.headers['x-forwarded-for'] as string)?.split(',')[0]?.trim() ||
@@ -85,16 +85,15 @@ authRouter.post('/inspector-login', async (req: Request, res: Response) => {
     });
   }
 
-  // 2. Parse request body
-  const { identifier, password, turnstileToken, rememberMe } = req.body as {
-    identifier?: string;
-    password?: string;
-    turnstileToken?: string;
-    rememberMe?: boolean;
-  };
+  // 2. Parse request body (supporting field aliases)
+  const body = req.body || {};
+  const rawIdentifier = (body.identifier || body.inspectorId || body.email || '') as string;
+  const rawPassword = (body.password || '') as string;
+  const rawTurnstileToken = (body.turnstileToken || body.turnstile_token || body['cf-turnstile-response'] || '') as string;
+  const rememberMe = Boolean(body.rememberMe || body.remember_me);
 
   // 3. Input validation
-  if (!identifier || typeof identifier !== 'string' || !identifier.trim()) {
+  if (!rawIdentifier || typeof rawIdentifier !== 'string' || !rawIdentifier.trim()) {
     return res.status(400).json({
       success: false,
       error: 'Inspector ID or official email is required.',
@@ -102,7 +101,7 @@ authRouter.post('/inspector-login', async (req: Request, res: Response) => {
     });
   }
 
-  if (!password || typeof password !== 'string') {
+  if (!rawPassword || typeof rawPassword !== 'string') {
     return res.status(400).json({
       success: false,
       error: 'Password is required.',
@@ -110,7 +109,7 @@ authRouter.post('/inspector-login', async (req: Request, res: Response) => {
     });
   }
 
-  if (!turnstileToken || typeof turnstileToken !== 'string' || !turnstileToken.trim()) {
+  if (!rawTurnstileToken || typeof rawTurnstileToken !== 'string' || !rawTurnstileToken.trim()) {
     return res.status(400).json({
       success: false,
       error: 'Security verification (CAPTCHA) is required. Please complete the challenge.',
@@ -119,7 +118,7 @@ authRouter.post('/inspector-login', async (req: Request, res: Response) => {
   }
 
   // 4. Turnstile Siteverify (server-side -- secret never leaves backend)
-  const turnstileResult = await verifyTurnstileToken(turnstileToken.trim(), clientIp);
+  const turnstileResult = await verifyTurnstileToken(rawTurnstileToken.trim(), clientIp);
 
   if (!turnstileResult.success) {
     const errorCodes = turnstileResult.errorCodes;
@@ -129,7 +128,7 @@ authRouter.post('/inspector-login', async (req: Request, res: Response) => {
     if (errorCodes.includes('timeout-or-duplicate')) {
       return res.status(400).json({
         success: false,
-        error: 'Security challenge expired or was already used. Please refresh the CAPTCHA and try again.',
+        error: 'Security challenge expired or was already used. Please click Sign In again.',
         turnstileError: true,
       });
     }
@@ -144,23 +143,23 @@ authRouter.post('/inspector-login', async (req: Request, res: Response) => {
 
     return res.status(400).json({
       success: false,
-      error: 'Security verification failed. Please complete the challenge and try again.',
+      error: 'Security verification failed. Please try signing in again.',
       turnstileError: true,
     });
   }
 
   // 5. Inspector credential validation
-  const account = findInspector(identifier.trim());
+  const account = findInspector(rawIdentifier.trim());
 
   // Generic error -- do not reveal whether identifier exists
   const INVALID_CREDENTIALS_MSG = 'Invalid Inspector ID or password. Please verify your credentials.';
 
   if (!account) {
-    console.warn('[Auth] Login attempt for unknown identifier:', identifier.substring(0, 30), '| IP:', clientIp);
+    console.warn('[Auth] Login attempt for unknown identifier:', rawIdentifier.substring(0, 30), '| IP:', clientIp);
     return res.status(401).json({ success: false, error: INVALID_CREDENTIALS_MSG });
   }
 
-  const passwordValid = validateInspectorPassword(account, password);
+  const passwordValid = validateInspectorPassword(account, rawPassword);
   if (!passwordValid) {
     console.warn('[Auth] Invalid password for inspector:', account.id, '| IP:', clientIp);
     return res.status(401).json({ success: false, error: INVALID_CREDENTIALS_MSG });
@@ -215,4 +214,8 @@ authRouter.post('/inspector-login', async (req: Request, res: Response) => {
     expiresAt,
     rememberMe: Boolean(rememberMe),
   });
-});
+};
+
+authRouter.post('/inspector-login', handleInspectorLogin);
+authRouter.post('/login', handleInspectorLogin);
+
