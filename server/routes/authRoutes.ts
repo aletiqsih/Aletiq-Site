@@ -218,4 +218,6 @@ const handleInspectorLogin = async (req: Request, res: Response) => {
 
 authRouter.post('/inspector-login', handleInspectorLogin);
 authRouter.post('/login', handleInspectorLogin);
+authRouter.post('/auth/inspector-login', handleInspectorLogin);
+authRouter.post('/auth/login', handleInspectorLogin);
 

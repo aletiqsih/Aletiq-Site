@@ -132,19 +132,42 @@ class AuthService {
     }
 
     try {
-      const response = await fetch(`${API_BASE_URL}/api/auth/inspector-login`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Accept: 'application/json',
-        },
-        body: JSON.stringify({
-          identifier: rawIdentifier,
-          password: rawPassword,
-          turnstileToken,
-          rememberMe: Boolean(credentials.rememberMe),
-        }),
+      const payload = JSON.stringify({
+        identifier: rawIdentifier,
+        inspectorId: rawIdentifier,
+        password: rawPassword,
+        turnstileToken,
+        rememberMe: Boolean(credentials.rememberMe),
       });
+
+      const headers = {
+        'Content-Type': 'application/json',
+        Accept: 'application/json',
+      };
+
+      // Try primary endpoint first: /api/auth/inspector-login
+      let response = await fetch(`${API_BASE_URL}/api/auth/inspector-login`, {
+        method: 'POST',
+        headers,
+        body: payload,
+      });
+
+      // Fallback if primary endpoint returns 404
+      if (response.status === 404) {
+        response = await fetch(`${API_BASE_URL}/api/auth/login`, {
+          method: 'POST',
+          headers,
+          body: payload,
+        });
+      }
+
+      if (response.status === 404) {
+        response = await fetch(`${API_BASE_URL}/api/login`, {
+          method: 'POST',
+          headers,
+          body: payload,
+        });
+      }
 
       const data = await response.json().catch(() => null);
 
