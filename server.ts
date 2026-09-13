@@ -38,9 +38,9 @@ async function startServer() {
   // ==========================================
 
   // Authentication & Inspector Login (Turnstile CAPTCHA + JWT)
-  // Mount ONLY at /api/auth — the canonical endpoint used by the frontend.
-  // Do NOT add duplicate mounts (/api, /auth) — they cause double-response errors.
   app.use('/api/auth', authRouter);
+  app.use('/api', authRouter);
+  app.use('/auth', authRouter);
 
   // 1. Health Check
   app.get('/api/health', (req, res) => {

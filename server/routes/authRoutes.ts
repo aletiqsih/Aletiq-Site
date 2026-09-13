@@ -216,8 +216,8 @@ const handleInspectorLogin = async (req: Request, res: Response) => {
   });
 };
 
-// Mounted at /api/auth in server.ts
-// Final routes: POST /api/auth/inspector-login and POST /api/auth/login
 authRouter.post('/inspector-login', handleInspectorLogin);
 authRouter.post('/login', handleInspectorLogin);
+authRouter.post('/auth/inspector-login', handleInspectorLogin);
+authRouter.post('/auth/login', handleInspectorLogin);
 

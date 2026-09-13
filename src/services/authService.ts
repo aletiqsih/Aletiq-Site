@@ -145,12 +145,29 @@ class AuthService {
         Accept: 'application/json',
       };
 
-      // POST credentials + Turnstile token to backend
-      const response = await fetch(`${API_BASE_URL}/api/auth/inspector-login`, {
+      // Try primary endpoint first: /api/auth/inspector-login
+      let response = await fetch(`${API_BASE_URL}/api/auth/inspector-login`, {
         method: 'POST',
         headers,
         body: payload,
       });
+
+      // Fallback if primary endpoint returns 404
+      if (response.status === 404) {
+        response = await fetch(`${API_BASE_URL}/api/auth/login`, {
+          method: 'POST',
+          headers,
+          body: payload,
+        });
+      }
+
+      if (response.status === 404) {
+        response = await fetch(`${API_BASE_URL}/api/login`, {
+          method: 'POST',
+          headers,
+          body: payload,
+        });
+      }
 
       const data = await response.json().catch(() => null);
 
