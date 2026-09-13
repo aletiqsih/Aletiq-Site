@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   ShieldCheck,
   Lock,
@@ -29,8 +29,6 @@ interface InspectorLoginProps {
 const TURNSTILE_SITE_KEY =
   (import.meta.env.VITE_TURNSTILE_SITE_KEY as string) || '1x00000000000000000000AA';
 
-type AuthPhase = 'idle' | 'verifying' | 'signing_in';
-
 export const InspectorLogin: React.FC<InspectorLoginProps> = ({
   onLoginSuccess,
   onReturnToApp,
@@ -40,84 +38,25 @@ export const InspectorLogin: React.FC<InspectorLoginProps> = ({
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(true);
 
-  // Authentication & Verification state
-  const [authPhase, setAuthPhase] = useState<AuthPhase>('idle');
+  // Turnstile CAPTCHA state
+  const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
   const [turnstileReady, setTurnstileReady] = useState(false);
   const turnstileContainerRef = useRef<HTMLDivElement>(null);
   const widgetIdRef = useRef<string | null>(null);
-  const isExecutingRef = useRef<boolean>(false);
-  const pendingAuthRef = useRef<{
-    identifier: string;
-    password: string;
-    rememberMe: boolean;
-  } | null>(null);
 
-  // Form Validation & Errors State
+  // Form Validation & Submission State
   const [errors, setErrors] = useState<{
     identifier?: string;
     password?: string;
+    turnstile?: string;
     general?: string;
   }>({});
+  const [isLoading, setIsLoading] = useState(false);
   const [showForgotModal, setShowForgotModal] = useState(false);
   const [forgotEmail, setForgotEmail] = useState('');
   const [forgotSent, setForgotSent] = useState(false);
 
-  // Process login with the verified Turnstile token
-  const processBackendLogin = useCallback(
-    async (token: string) => {
-      const creds = pendingAuthRef.current;
-      if (!creds) {
-        setAuthPhase('idle');
-        isExecutingRef.current = false;
-        return;
-      }
-
-      setAuthPhase('signing_in');
-
-      try {
-        const result = await authService.login({
-          identifier: creds.identifier,
-          password: creds.password,
-          rememberMe: creds.rememberMe,
-          turnstileToken: token,
-        });
-
-        if (result.success && result.user) {
-          pendingAuthRef.current = null;
-          isExecutingRef.current = false;
-          onLoginSuccess(result.user);
-        } else {
-          setAuthPhase('idle');
-          pendingAuthRef.current = null;
-          isExecutingRef.current = false;
-          setErrors({ general: result.error || 'Authentication failed. Please verify credentials.' });
-
-          // Reset Turnstile widget so user can re-verify on next submission
-          if (window.turnstile && widgetIdRef.current) {
-            try {
-              window.turnstile.reset(widgetIdRef.current);
-            } catch {}
-          }
-        }
-      } catch (err: any) {
-        setAuthPhase('idle');
-        pendingAuthRef.current = null;
-        isExecutingRef.current = false;
-        setErrors({
-          general: err.message || 'An unexpected error occurred during authentication.',
-        });
-
-        if (window.turnstile && widgetIdRef.current) {
-          try {
-            window.turnstile.reset(widgetIdRef.current);
-          } catch {}
-        }
-      }
-    },
-    [onLoginSuccess]
-  );
-
-  // Initialize Cloudflare Turnstile widget in manual execution mode
+  // Initialize Cloudflare Turnstile widget
   useEffect(() => {
     let isMounted = true;
 
@@ -129,58 +68,21 @@ export const InspectorLogin: React.FC<InspectorLoginProps> = ({
         const id = window.turnstile.render(turnstileContainerRef.current, {
           sitekey: TURNSTILE_SITE_KEY,
           theme: 'light',
-          execution: 'execute', // MANUAL EXECUTION: Do NOT execute on page load!
-          appearance: 'always', // Widget frame remains stable in DOM
           callback: (token: string) => {
             if (!isMounted) return;
-            processBackendLogin(token);
-          },
-          'error-callback': (errorCode?: string) => {
-            if (!isMounted) return;
-            console.warn('[Turnstile] Challenge error:', errorCode);
-            setAuthPhase('idle');
-            isExecutingRef.current = false;
-            pendingAuthRef.current = null;
-            setErrors(prev => ({
-              ...prev,
-              general: 'Security verification encountered an error. Please try signing in again.',
-            }));
-            if (window.turnstile && widgetIdRef.current) {
-              try {
-                window.turnstile.reset(widgetIdRef.current);
-              } catch {}
-            }
-          },
-          'timeout-callback': () => {
-            if (!isMounted) return;
-            console.warn('[Turnstile] Challenge timed out');
-            setAuthPhase('idle');
-            isExecutingRef.current = false;
-            pendingAuthRef.current = null;
-            setErrors(prev => ({
-              ...prev,
-              general: 'Security verification timed out. Please try signing in again.',
-            }));
-            if (window.turnstile && widgetIdRef.current) {
-              try {
-                window.turnstile.reset(widgetIdRef.current);
-              } catch {}
-            }
+            setTurnstileToken(token);
+            setTurnstileReady(true);
+            setErrors(prev => ({ ...prev, turnstile: undefined, general: undefined }));
           },
           'expired-callback': () => {
             if (!isMounted) return;
-            console.warn('[Turnstile] Challenge token expired');
-            setAuthPhase('idle');
-            isExecutingRef.current = false;
-            pendingAuthRef.current = null;
-            if (window.turnstile && widgetIdRef.current) {
-              try {
-                window.turnstile.reset(widgetIdRef.current);
-              } catch {}
-            }
+            setTurnstileToken(null);
+          },
+          'error-callback': () => {
+            if (!isMounted) return;
+            setTurnstileToken(null);
           },
         });
-
         widgetIdRef.current = id;
         setTurnstileReady(true);
       } catch (e) {
@@ -191,6 +93,7 @@ export const InspectorLogin: React.FC<InspectorLoginProps> = ({
     if (window.turnstile) {
       renderWidget();
     } else {
+      // Check if script is already present in document
       const existingScript = document.querySelector('script[src*="turnstile"]');
       if (!existingScript) {
         const script = document.createElement('script');
@@ -221,12 +124,13 @@ export const InspectorLogin: React.FC<InspectorLoginProps> = ({
         widgetIdRef.current = null;
       }
     };
-  }, [processBackendLogin]);
+  }, []);
 
   const validate = (): boolean => {
     const newErrors: {
       identifier?: string;
       password?: string;
+      turnstile?: string;
       general?: string;
     } = {};
 
@@ -240,6 +144,10 @@ export const InspectorLogin: React.FC<InspectorLoginProps> = ({
       newErrors.password = 'Password must be at least 6 characters.';
     }
 
+    if (!turnstileToken) {
+      newErrors.turnstile = 'Please complete the security challenge (CAPTCHA).';
+    }
+
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -248,55 +156,40 @@ export const InspectorLogin: React.FC<InspectorLoginProps> = ({
     e.preventDefault();
     setErrors({});
 
-    // 1. Validate fields locally
     if (!validate()) {
       return;
     }
 
-    // 2. Prevent duplicate execution
-    if (authPhase !== 'idle' || isExecutingRef.current) {
-      return;
-    }
+    setIsLoading(true);
 
-    // 3. Store pending credentials and transition to 'verifying' phase
-    pendingAuthRef.current = {
-      identifier: identifier.trim(),
-      password,
-      rememberMe,
-    };
-    isExecutingRef.current = true;
-    setAuthPhase('verifying');
-
-    // 4. Trigger manual Turnstile verification
-    if (window.turnstile && widgetIdRef.current) {
-      try {
-        window.turnstile.execute(widgetIdRef.current);
-      } catch (err) {
-        console.error('[Turnstile] Error triggering execution:', err);
-        setAuthPhase('idle');
-        isExecutingRef.current = false;
-        pendingAuthRef.current = null;
-        setErrors({ general: 'Failed to initiate security check. Please try again.' });
-      }
-    } else if (window.turnstile && turnstileContainerRef.current) {
-      try {
-        window.turnstile.execute(turnstileContainerRef.current);
-      } catch (err) {
-        console.error('[Turnstile] Error triggering execution on container:', err);
-        setAuthPhase('idle');
-        isExecutingRef.current = false;
-        pendingAuthRef.current = null;
-        setErrors({ general: 'Failed to initiate security check. Please try again.' });
-      }
-    } else {
-      // Fallback: If Turnstile CDN script is blocked or unavailable
-      setAuthPhase('idle');
-      isExecutingRef.current = false;
-      pendingAuthRef.current = null;
-      setErrors({
-        general:
-          'Security verification service is still initializing. Please wait a moment and click Sign In again.',
+    try {
+      const result = await authService.login({
+        identifier: identifier.trim(),
+        password,
+        rememberMe,
+        turnstileToken: turnstileToken || undefined,
       });
+
+      if (result.success && result.user) {
+        onLoginSuccess(result.user);
+      } else {
+        setErrors({ general: result.error || 'Authentication failed. Please verify credentials.' });
+        // Reset turnstile challenge on authentication failure
+        if (window.turnstile && widgetIdRef.current) {
+          window.turnstile.reset(widgetIdRef.current);
+          setTurnstileToken(null);
+        }
+      }
+    } catch (err: any) {
+      setErrors({
+        general: err.message || 'An unexpected error occurred during authentication.',
+      });
+      if (window.turnstile && widgetIdRef.current) {
+        window.turnstile.reset(widgetIdRef.current);
+        setTurnstileToken(null);
+      }
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -314,8 +207,6 @@ export const InspectorLogin: React.FC<InspectorLoginProps> = ({
     if (!forgotEmail.trim()) return;
     setForgotSent(true);
   };
-
-  const isSubmitting = authPhase !== 'idle';
 
   return (
     <div className="min-h-screen bg-slate-100 flex flex-col justify-between font-sans antialiased text-slate-900">
@@ -359,6 +250,7 @@ export const InspectorLogin: React.FC<InspectorLoginProps> = ({
           
           {/* Left Column: Regulatory Authority & Mission Info (Slate-900) */}
           <div className="lg:col-span-5 bg-gradient-to-br from-slate-900 via-slate-800 to-slate-950 text-white p-6 sm:p-8 flex flex-col justify-between relative overflow-hidden border-b lg:border-b-0 lg:border-r border-slate-800">
+            {/* Subtle decorative background glow */}
             <div className="absolute -right-16 -bottom-16 w-64 h-64 bg-emerald-600/10 rounded-full blur-3xl pointer-events-none" />
             <div className="absolute -left-16 -top-16 w-64 h-64 bg-emerald-400/5 rounded-full blur-3xl pointer-events-none" />
 
@@ -460,8 +352,7 @@ export const InspectorLogin: React.FC<InspectorLoginProps> = ({
                       key={sample.user.id}
                       type="button"
                       onClick={() => handleQuickFill(idx)}
-                      disabled={isSubmitting}
-                      className="text-[11px] bg-white hover:bg-emerald-50 hover:border-emerald-300 text-slate-700 hover:text-emerald-800 border border-slate-200 px-2.5 py-1 rounded-md transition-colors text-left flex items-center space-x-1.5 shadow-2xs font-medium cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                      className="text-[11px] bg-white hover:bg-emerald-50 hover:border-emerald-300 text-slate-700 hover:text-emerald-800 border border-slate-200 px-2.5 py-1 rounded-md transition-colors text-left flex items-center space-x-1.5 shadow-2xs font-medium cursor-pointer"
                     >
                       <User className="w-3 h-3 text-slate-400" />
                       <span>{sample.user.name}</span>
@@ -504,7 +395,7 @@ export const InspectorLogin: React.FC<InspectorLoginProps> = ({
                         if (errors.identifier) setErrors(prev => ({ ...prev, identifier: undefined }));
                       }}
                       placeholder="e.g., DL-INSP-2026-089 or inspector@delhi.gov.in"
-                      disabled={isSubmitting}
+                      disabled={isLoading}
                       aria-invalid={Boolean(errors.identifier)}
                       aria-describedby={errors.identifier ? 'identifier-error' : undefined}
                       className={`w-full pl-9 pr-3 py-2.5 text-xs rounded-lg border bg-white text-slate-900 transition-colors focus:outline-none focus:ring-2 ${
@@ -554,7 +445,7 @@ export const InspectorLogin: React.FC<InspectorLoginProps> = ({
                         if (errors.password) setErrors(prev => ({ ...prev, password: undefined }));
                       }}
                       placeholder="••••••••••••"
-                      disabled={isSubmitting}
+                      disabled={isLoading}
                       aria-invalid={Boolean(errors.password)}
                       aria-describedby={errors.password ? 'password-error' : undefined}
                       className={`w-full pl-9 pr-10 py-2.5 text-xs rounded-lg border bg-white text-slate-900 transition-colors focus:outline-none focus:ring-2 ${
@@ -567,8 +458,7 @@ export const InspectorLogin: React.FC<InspectorLoginProps> = ({
                       type="button"
                       onClick={() => setShowPassword(!showPassword)}
                       aria-label={showPassword ? 'Hide password' : 'Show password'}
-                      disabled={isSubmitting}
-                      className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-slate-600 focus:outline-none cursor-pointer disabled:opacity-50"
+                      className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-slate-600 focus:outline-none cursor-pointer"
                     >
                       {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                     </button>
@@ -587,9 +477,8 @@ export const InspectorLogin: React.FC<InspectorLoginProps> = ({
                     <input
                       type="checkbox"
                       checked={rememberMe}
-                      disabled={isSubmitting}
                       onChange={e => setRememberMe(e.target.checked)}
-                      className="w-4 h-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500 cursor-pointer disabled:opacity-50"
+                      className="w-4 h-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500 cursor-pointer"
                     />
                     <span>Remember me on this terminal</span>
                   </label>
@@ -598,52 +487,58 @@ export const InspectorLogin: React.FC<InspectorLoginProps> = ({
                   </span>
                 </div>
 
-                {/* Cloudflare Turnstile Security Verification Container */}
+                {/* Cloudflare Turnstile Security Verification */}
                 <div className="pt-2">
                   <div className="flex items-center justify-between mb-1.5">
                     <label className="block text-xs font-semibold text-slate-700">
                       Security Verification <span className="text-rose-500">*</span>
                     </label>
-                    <span className="text-[10px] text-slate-400 font-medium">Cloudflare Turnstile (Managed)</span>
+                    <span className="text-[10px] text-slate-400 font-medium">Cloudflare Turnstile</span>
                   </div>
                   
                   <div className="min-h-[66px] flex flex-col items-center justify-center p-2 rounded-lg bg-slate-50 border border-slate-200">
                     <div ref={turnstileContainerRef} id="turnstile-container" className="my-0.5" />
-                    {!turnstileReady && (
+                    {!turnstileReady && !turnstileToken && (
                       <div className="text-[11px] text-slate-400 flex items-center space-x-1.5 py-1">
                         <Loader2 className="w-3.5 h-3.5 animate-spin text-emerald-600" />
-                        <span>Initializing security engine...</span>
+                        <span>Initializing security challenge...</span>
                       </div>
                     )}
                   </div>
+
+                  {errors.turnstile && (
+                    <p className="text-[11px] text-rose-600 font-medium mt-1 flex items-center space-x-1">
+                      <AlertCircle className="w-3 h-3 shrink-0" />
+                      <span>{errors.turnstile}</span>
+                    </p>
+                  )}
                 </div>
 
                 {/* Submit Button */}
                 <div className="pt-2">
                   <button
                     type="submit"
-                    disabled={isSubmitting}
-                    className="w-full inline-flex items-center justify-center space-x-2 bg-emerald-600 hover:bg-emerald-500 disabled:bg-emerald-800/80 text-white font-semibold text-xs sm:text-sm py-2.5 px-4 rounded-lg shadow-sm transition-colors cursor-pointer disabled:cursor-not-allowed"
+                    disabled={isLoading || !turnstileToken}
+                    title={!turnstileToken ? 'Please complete the CAPTCHA verification above to continue' : 'Sign in'}
+                    className="w-full inline-flex items-center justify-center space-x-2 bg-emerald-600 hover:bg-emerald-500 disabled:bg-slate-300 disabled:text-slate-500 text-white font-semibold text-xs sm:text-sm py-2.5 px-4 rounded-lg shadow-sm transition-colors cursor-pointer disabled:cursor-not-allowed"
                   >
-                    {authPhase === 'verifying' && (
+                    {isLoading ? (
                       <>
                         <Loader2 className="w-4 h-4 animate-spin" />
-                        <span>Verifying Security Challenge...</span>
+                        <span>Verifying Inspector Credentials...</span>
                       </>
-                    )}
-                    {authPhase === 'signing_in' && (
-                      <>
-                        <Loader2 className="w-4 h-4 animate-spin" />
-                        <span>Signing In to Inspector Portal...</span>
-                      </>
-                    )}
-                    {authPhase === 'idle' && (
+                    ) : (
                       <>
                         <ShieldCheck className="w-4 h-4" />
                         <span>Sign In to Inspector Portal</span>
                       </>
                     )}
                   </button>
+                  {!turnstileToken && !isLoading && (
+                    <p className="text-[10px] text-slate-400 text-center mt-1.5">
+                      Complete the security check above to enable sign-in
+                    </p>
+                  )}
                 </div>
               </form>
             </div>
@@ -689,69 +584,76 @@ export const InspectorLogin: React.FC<InspectorLoginProps> = ({
                 <h3 className="text-base font-bold text-slate-900">
                   Inspector Credential Recovery
                 </h3>
-                <p className="text-xs text-slate-500">
-                  Directorate of Legal Metrology Security Administration
-                </p>
+                <p className="text-xs text-slate-500">Legal Metrology Enforcement System</p>
               </div>
             </div>
 
             {forgotSent ? (
-              <div className="py-4 text-center space-y-3">
-                <div className="w-12 h-12 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto">
-                  <CheckCircle2 className="w-6 h-6" />
+              <div className="space-y-4">
+                <div className="p-3.5 bg-emerald-50 border border-emerald-200 rounded-lg text-emerald-800 text-xs space-y-1.5">
+                  <div className="flex items-center space-x-1.5 font-bold">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                    <span>Recovery Request Registered</span>
+                  </div>
+                  <p className="text-[11px] leading-relaxed text-emerald-700">
+                    If an active inspector profile is registered with{' '}
+                    <span className="font-semibold">{forgotEmail}</span>, password reset instructions and departmental OTP have been dispatched to your official nodal email.
+                  </p>
                 </div>
-                <h4 className="text-sm font-bold text-slate-900">Recovery Instructions Dispatched</h4>
-                <p className="text-xs text-slate-600 leading-relaxed">
-                  If the identifier or email <strong className="text-slate-900">{forgotEmail}</strong> matches an active official record, a temporary recovery dispatch has been routed to your zonal administrator.
-                </p>
-                <div className="pt-2">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setShowForgotModal(false);
-                      setForgotSent(false);
-                      setForgotEmail('');
-                    }}
-                    className="w-full py-2 px-4 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-semibold"
-                  >
-                    Close & Return to Sign In
-                  </button>
-                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowForgotModal(false);
+                    setForgotSent(false);
+                    setForgotEmail('');
+                  }}
+                  className="w-full py-2 bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold rounded-lg"
+                >
+                  Close & Return to Login
+                </button>
               </div>
             ) : (
               <form onSubmit={handleForgotSubmit} className="space-y-4">
                 <p className="text-xs text-slate-600 leading-relaxed">
-                  Please enter your registered official government email or Inspector Badge ID. A secure verification link will be routed to your department administrator.
+                  Enter your registered government email or Inspector Badge ID to receive departmental recovery assistance.
                 </p>
 
                 <div>
-                  <label htmlFor="recovery-id" className="block text-xs font-semibold text-slate-700 mb-1">
-                    Official Email or Badge ID
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">
+                    Official Email / Badge ID
                   </label>
                   <input
-                    id="recovery-id"
                     type="text"
                     required
                     value={forgotEmail}
                     onChange={e => setForgotEmail(e.target.value)}
                     placeholder="e.g., inspector.verma@delhi.gov.in"
-                    className="w-full px-3 py-2 text-xs rounded-lg border border-slate-300 focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600 outline-none"
+                    className="w-full px-3 py-2 text-xs rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600"
                   />
                 </div>
 
-                <div className="flex items-center space-x-2 pt-2">
+                <div className="p-3 bg-slate-50 border border-slate-200 rounded-lg text-[11px] text-slate-600">
+                  <div className="flex items-start space-x-1.5">
+                    <Info className="w-3.5 h-3.5 text-slate-500 shrink-0 mt-0.5" />
+                    <p>
+                      For immediate field access during inspections, please contact your Zonal Controller or SIH26034 Platform Administrator.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex justify-end space-x-2 pt-2">
                   <button
                     type="button"
                     onClick={() => setShowForgotModal(false)}
-                    className="flex-1 py-2 px-3 border border-slate-300 hover:bg-slate-50 text-slate-700 rounded-lg text-xs font-medium"
+                    className="px-3 py-2 text-xs font-medium text-slate-700 hover:bg-slate-100 rounded-lg"
                   >
                     Cancel
                   </button>
                   <button
                     type="submit"
-                    className="flex-1 py-2 px-3 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-semibold shadow-xs"
+                    className="px-4 py-2 text-xs font-semibold text-white bg-emerald-600 hover:bg-emerald-500 rounded-lg shadow-sm"
                   >
-                    Submit Request
+                    Send Recovery Instructions
                   </button>
                 </div>
               </form>
@@ -760,18 +662,17 @@ export const InspectorLogin: React.FC<InspectorLoginProps> = ({
         </div>
       )}
 
-      {/* Page Footer */}
-      <footer className="bg-slate-900 border-t border-slate-800 text-slate-400 text-xs py-4">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-2 text-[11px]">
+      {/* Footer */}
+      <footer className="bg-white border-t border-slate-200 py-4 text-center text-xs text-slate-500">
+        <div className="max-w-7xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-2">
           <div className="flex items-center space-x-2">
-            <span>Aletiq Legal Metrology Compliance Intelligence</span>
+            <span className="font-bold text-slate-800">Aletiq</span>
             <span>•</span>
-            <span>SIH26034 Reference Implementation</span>
+            <span>SIH 2026 Problem Statement SIH26034</span>
           </div>
-          <div className="flex items-center space-x-4 text-slate-400">
-            <span>Rules, 2011 Compliance</span>
-            <span>Direct Consumer Affairs Directorate Integration</span>
-          </div>
+          <p className="text-[11px] text-slate-400">
+            Legal Metrology (Packaged Commodities) Compliance Intelligence Platform
+          </p>
         </div>
       </footer>
     </div>
