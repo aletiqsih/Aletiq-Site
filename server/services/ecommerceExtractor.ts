@@ -11,6 +11,7 @@ import {
 import { evaluateLegalMetrologyCompliance } from '../engine/ruleEngine';
 import { comparePackageWithDigitalListing } from './comparisonService';
 import { inspectionRepository } from '../db/inspectionRepository';
+import { getGeminiApiKey } from '../ai/geminiExtractor';
 
 /**
  * SSRF Safeguard: Check if a given URL is safe to fetch.
@@ -531,17 +532,14 @@ export function extractFromHtmlDOM(html: string): Partial<RawProductData> {
  * Tier 4: Gemini AI-assisted extraction from cleaned webpage text
  */
 export async function extractWithGemini(cleanText: string): Promise<Partial<RawProductData> | null> {
-  const apiKey = process.env.GEMINI_API_KEY;
-  if (!apiKey || apiKey === 'MY_GEMINI_API_KEY' || !cleanText || cleanText.length < 20) {
+  const apiKey = getGeminiApiKey();
+  if (!apiKey || !cleanText || cleanText.length < 20) {
     return null;
   }
 
   try {
     const ai = new GoogleGenAI({
       apiKey,
-      httpOptions: {
-        headers: { 'User-Agent': 'aistudio-build' },
-      },
     });
 
     const prompt = `You are a Legal Metrology Compliance Parser for Indian E-Commerce listings.

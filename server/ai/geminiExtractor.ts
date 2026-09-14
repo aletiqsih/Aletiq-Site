@@ -1,18 +1,31 @@
 import { GoogleGenAI, Type } from '@google/genai';
 import { ExtractedDeclarations, ExtractedFieldItem, InspectionImage } from '../../src/types';
 
+export function getGeminiApiKey(): string | null {
+  const rawKey =
+    process.env.GEMINI_API_KEY ||
+    process.env.GOOGLE_API_KEY ||
+    process.env.GOOGLE_GENAI_API_KEY;
+  if (!rawKey) return null;
+  const key = rawKey.trim();
+  if (
+    key === '' ||
+    key === 'MY_GEMINI_API_KEY' ||
+    key.toLowerCase() === 'undefined' ||
+    key.toLowerCase() === 'null'
+  ) {
+    return null;
+  }
+  return key;
+}
+
 function getGeminiClient(): GoogleGenAI | null {
-  const apiKey = process.env.GEMINI_API_KEY;
-  if (!apiKey || apiKey === 'MY_GEMINI_API_KEY') {
+  const apiKey = getGeminiApiKey();
+  if (!apiKey) {
     return null;
   }
   return new GoogleGenAI({
     apiKey,
-    httpOptions: {
-      headers: {
-        'User-Agent': 'aistudio-build',
-      },
-    },
   });
 }
 
@@ -26,7 +39,7 @@ export async function extractPackageDeclarationsWithGemini(
   const ai = getGeminiClient();
   if (!ai) {
     throw new Error(
-      'GEMINI_API_KEY is not configured. Please add a valid GEMINI_API_KEY in your .env file to enable AI OCR extraction on uploaded packages.'
+      'Gemini AI extraction is unauthenticated. Please configure a valid GEMINI_API_KEY or GOOGLE_API_KEY in your server environment variables.'
     );
   }
 

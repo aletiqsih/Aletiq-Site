@@ -6,7 +6,7 @@ import path from 'path';
 import { createServer as createViteServer } from 'vite';
 import { inspectionRepository } from './server/db/inspectionRepository';
 import { LEGAL_RULES } from './src/data/legalRules';
-import { extractPackageDeclarationsWithGemini } from './server/ai/geminiExtractor';
+import { extractPackageDeclarationsWithGemini, getGeminiApiKey } from './server/ai/geminiExtractor';
 import { evaluateLegalMetrologyCompliance } from './server/engine/ruleEngine';
 import { comparePackageWithDigitalListing } from './server/services/comparisonService';
 import { generateImprovementNoticeDraft } from './server/services/noticeService';
@@ -42,7 +42,7 @@ async function startServer() {
       status: 'ok',
       service: 'Aletiq Legal Metrology Compliance Intelligence API',
       version: '1.0.0-SIH26034',
-      geminiConfigured: Boolean(process.env.GEMINI_API_KEY && process.env.GEMINI_API_KEY !== 'MY_GEMINI_API_KEY'),
+      geminiConfigured: Boolean(getGeminiApiKey()),
       timestamp: new Date().toISOString(),
     });
   });
